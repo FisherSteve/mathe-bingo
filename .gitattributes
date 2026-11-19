@@ -1,0 +1,4 @@
+# The distributable is reproducible byte-for-byte on Windows and other systems.
+# Generated file includes original third-party font notices with line-end spaces.
+/index.html text eol=lf whitespace=-blank-at-eol
+/package-lock.json text eol=lf

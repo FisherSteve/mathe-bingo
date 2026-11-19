@@ -1,0 +1,16 @@
+# Nur ausdrücklich freigegebene Projektdateien versionieren.
+/*
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/THIRD_PARTY_NOTICES.md
+!/index.html
+!/bingo_wuerfel_app_ver1.4.html
+!/package.json
+!/package-lock.json
+!/tools/
+/tools/*
+!/tools/build_standalone.js
+!/tools/audit_s6b_package.js
+!/tools/audit_s6b_storage.js
+!/tools/verify_bingo_card_check.js

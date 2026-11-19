@@ -1,0 +1,21 @@
+{
+  "name": "mathe-bingo-build",
+  "version": "1.4.0-alpha",
+  "private": true,
+  "description": "Development tools for the self-contained Mathe-Bingo HTML file",
+  "scripts": {
+    "build": "node tools/build_standalone.js",
+    "check:build": "node tools/build_standalone.js --check",
+    "test:storage": "node tools/audit_s6b_storage.js",
+    "test": "node tools/audit_s6b_storage.js && node tools/audit_s6b_package.js && node tools/verify_bingo_card_check.js --version=1.4 --all-presets"
+  },
+  "devDependencies": {
+    "@babel/core": "7.28.5",
+    "@babel/preset-react": "7.28.5",
+    "jspdf": "2.5.1",
+    "postcss": "8.5.6",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "tailwindcss": "3.4.17"
+  }
+}
