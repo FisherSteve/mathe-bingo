@@ -1753,7 +1753,7 @@
         buildTaskPool: buildVertexTasks,
         buildCardPool: buildVertexCards,
         prepareTask: task => task,
-        renderTask: task => <FunctionTask item={task} />
+        renderTask: (task, params) => <FunctionTask item={task} params={params} />
       },
       powerRoots: {
         label: 'Potenzen und Wurzeln',
@@ -3572,13 +3572,12 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
         const extent = Math.max(clampNumber(params.linearFunctionBMax, 0, 30, 30), clampNumber(params.linearFunctionSlopeMax, 1, 12, 12)) + 1;
         return { xMin: -extent, xMax: extent, yMin: -extent, yMax: extent };
       }
-      const points = [...graphPoints(item), [0, 0]];
-      if (item.graphType === 'quadratic') {
-        points.push([item.b - 2, item.c + item.a * 4], [item.b + 2, item.c + item.a * 4]);
-        if (Number.isFinite(item.x1)) points.push([item.x1 - 1, 0], [item.x2 + 1, 0]);
-      }
-      const xs = points.map(p => p[0]), ys = points.map(p => p[1]);
-      return { xMin: Math.min(-2, Math.floor(Math.min(...xs)) - 1), xMax: Math.max(3, Math.ceil(Math.max(...xs)) + 1), yMin: Math.min(-2, Math.floor(Math.min(...ys)) - 2), yMax: Math.max(3, Math.ceil(Math.max(...ys)) + 2) };
+      const range = clampNumber(params.vertexRange ?? params.n, 2, 20, 20);
+      const coeffMax = clampNumber(params.vertexCoeffMax, 1, 8, 8);
+      const zeros = params.vertexTaskType === 'zeros' || item.subtype === 'zeros';
+      const zeroRadius = Math.max(1, Math.min(3, Math.floor(range / 2)));
+      const extent = zeros ? Math.max(range + 1, coeffMax * zeroRadius * zeroRadius) + 1 : range + coeffMax + 1;
+      return { xMin: -extent, xMax: extent, yMin: -extent, yMax: extent };
     }
 
     function integerTicks(min, max, step = 1) {
@@ -3595,22 +3594,17 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
     function graphLayout(item, width, height, params) {
       const bounds = getGraphBounds(item, params);
       let left = width * 0.13, right = width * 0.93, top = height * 0.18, bottom = height * 0.82;
-      // Linear graphs always use a unit grid, in tasks, cards and PDF alike.
+      // Every function graph uses a square unit grid and one range per set.
       // Only number labels may be sparser for large freely chosen ranges.
-      const linear = item.graphType === 'linear';
-      if (linear) {
-        // Use the space left by the removed scale note for larger square cells.
-        top = height * 94 / 520; bottom = height * 496 / 520;
-        const centerY = (top + bottom) / 2;
-        const unit = Math.min((right - left) / (bounds.xMax - bounds.xMin), (bottom - top) / (bounds.yMax - bounds.yMin));
-        const xHalf = bounds.xMax, yHalf = bounds.yMax;
-        left = width / 2 - xHalf * unit; right = width / 2 + xHalf * unit;
-        top = centerY - yHalf * unit; bottom = centerY + yHalf * unit;
-      }
-      const xStep = linear ? 1 : graphTickStep(bounds.xMax - bounds.xMin, 7);
-      const yStep = linear ? 1 : graphTickStep(bounds.yMax - bounds.yMin, 5);
-      const xLabelStep = linear ? graphTickStep(bounds.xMax - bounds.xMin, (right - left) / 20) : xStep;
-      const yLabelStep = linear ? graphTickStep(bounds.yMax - bounds.yMin, (bottom - top) / 20) : yStep;
+      top = height * 94 / 520; bottom = height * 496 / 520;
+      const centerY = (top + bottom) / 2;
+      const unit = Math.min((right - left) / (bounds.xMax - bounds.xMin), (bottom - top) / (bounds.yMax - bounds.yMin));
+      const xHalf = bounds.xMax, yHalf = bounds.yMax;
+      left = width / 2 - xHalf * unit; right = width / 2 + xHalf * unit;
+      top = centerY - yHalf * unit; bottom = centerY + yHalf * unit;
+      const xStep = 1, yStep = 1;
+      const xLabelStep = graphTickStep(bounds.xMax - bounds.xMin, (right - left) / 28);
+      const yLabelStep = graphTickStep(bounds.yMax - bounds.yMin, (bottom - top) / 28);
       const sx = x => left + (x - bounds.xMin) / (bounds.xMax - bounds.xMin) * (right - left);
       const sy = y => bottom - (y - bounds.yMin) / (bounds.yMax - bounds.yMin) * (bottom - top);
       const segments = []; let segment = [];
@@ -3627,11 +3621,6 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
         segments, points: graphPoints(item) };
     }
 
-    function graphScaleLabel(item, g) {
-      if (item.graphType === 'linear') return '';
-      return item.subtype === 'zeros' ? `Gitter: x 1; y ${g.yStep} · Beschriftung: x ${g.xStep}; y ${g.yStep}` : `Teilung: x ${g.xStep}; y ${g.yStep} (Skalen getrennt)`;
-    }
-
     function graphInstruction(item) {
       if (item.subtype === 'zeros') return 'Lies die Nullstelle(n) ab.';
       return item.graphType === 'quadratic' ? 'Bestimme die Scheitelpunktform.' : 'Bestimme die Funktionsgleichung.';
@@ -3639,41 +3628,39 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
 
     // Shared textbook-style labels and arrowheads for screen and PDF.
     function graphAxisModel(item, g) {
-      const linear = item.graphType === 'linear', x0 = g.sx(0), y0 = g.sy(0);
+      const x0 = g.sx(0), y0 = g.sy(0);
       return {
-        color: linear ? '#111827' : '#334155',
-        xLabels: g.xLabels.filter(v => !linear || v !== 0).map(v => [v, g.sx(v), linear ? y0 + 20 : g.bottom + 26]),
-        yLabels: g.yLabels.filter(v => !linear || v !== 0).map(v => [v, linear ? x0 - 7 : g.left - 10, g.sy(v) + (linear ? 4 : 6)]),
-        xName: [g.right + (linear ? 25 : 14), y0 + (linear ? 18 : 6)],
-        yName: [x0 + (linear ? -15 : 13), g.top - 10],
-        arrows: linear ? [
+        color: '#111827',
+        xLabels: g.xLabels.filter(v => v !== 0).map(v => [v, g.sx(v), y0 + 20]),
+        yLabels: g.yLabels.filter(v => v !== 0).map(v => [v, x0 - 7, g.sy(v) + 4]),
+        xName: [g.right + 25, y0 + 18],
+        yName: [x0 - 15, g.top - 10],
+        arrows: [
           [[g.right + 13, y0], [g.right, y0 - 5], [g.right, y0 + 5]],
           [[x0, g.top - 13], [x0 - 5, g.top], [x0 + 5, g.top]]
-        ] : []
+        ]
       };
     }
 
     function FunctionGraph({ item, small = false, params }) {
-      const width = item.graphType === 'linear' ? 520 : 720, height = 520;
+      const width = 520, height = 520;
       const g = graphLayout(item, width, height, params), { sx, sy } = g;
-      const visibleHeight = item.graphType === 'linear' ? 512 : height;
-      const scaleLabel = graphScaleLabel(item, g);
+      const visibleHeight = 512;
       const axes = graphAxisModel(item, g);
       const text = (x, y, label, anchor = 'middle', size = 19) => <text x={x} y={y} textAnchor={anchor} fontSize={size} fontWeight="600" fill="#0f172a">{label}</text>;
       return <svg width={width} height={visibleHeight} style={{width:small ? '100%' : undefined,height:'auto'}} viewBox={`0 0 ${width} ${visibleHeight}`} role="img" aria-label="Funktionsgraph mit beschrifteten Achsen und Skalen" className="inline-block max-w-full rounded-xl bg-white/95 text-slate-800 shadow-sm">
         {!small && text(width/2, 28, graphInstruction(item), 'middle', 22)}
         {text(width/2, 57, `Markierte Punkte: ${g.points.map(([x,y]) => `(${x}|${y})`).join('; ')}`, 'middle', small ? 22 : 19)}
-        {(item.subtype === 'zeros' ? integerTicks(g.bounds.xMin,g.bounds.xMax) : g.xTicks).map(v => <line key={`gx${v}`} x1={sx(v)} x2={sx(v)} y1={g.top} y2={g.bottom} stroke="#e2e8f0" strokeWidth="1" />)}
+        {g.xTicks.map(v => <line key={`gx${v}`} x1={sx(v)} x2={sx(v)} y1={g.top} y2={g.bottom} stroke="#e2e8f0" strokeWidth="1" />)}
         {g.yTicks.map(v => <line key={`gy${v}`} x1={g.left} x2={g.right} y1={sy(v)} y2={sy(v)} stroke="#e2e8f0" strokeWidth="1" />)}
         <line x1={g.left} x2={g.right} y1={sy(0)} y2={sy(0)} stroke={axes.color} strokeWidth="2" />
         <line x1={sx(0)} x2={sx(0)} y1={g.top} y2={g.bottom} stroke={axes.color} strokeWidth="2" />
-        {g.xTicks.map(v => { const label = axes.xLabels.find(([value]) => value === v); return <React.Fragment key={`tx${v}`}><line x1={sx(v)} x2={sx(v)} y1={sy(0)-4} y2={sy(0)+4} stroke={axes.color} />{label && text(label[1], label[2], v, 'middle', item.graphType === 'linear' ? 14 : small ? 23 : 19)}</React.Fragment>; })}
-        {g.yTicks.map(v => { const label = axes.yLabels.find(([value]) => value === v); return <React.Fragment key={`ty${v}`}><line x1={sx(0)-4} x2={sx(0)+4} y1={sy(v)} y2={sy(v)} stroke={axes.color} />{label && text(label[1], label[2], v, 'end', item.graphType === 'linear' ? 14 : small ? 23 : 19)}</React.Fragment>; })}
+        {g.xTicks.map(v => { const label = axes.xLabels.find(([value]) => value === v); return <React.Fragment key={`tx${v}`}><line x1={sx(v)} x2={sx(v)} y1={sy(0)-4} y2={sy(0)+4} stroke={axes.color} />{label && text(label[1], label[2], v, 'middle', 14)}</React.Fragment>; })}
+        {g.yTicks.map(v => { const label = axes.yLabels.find(([value]) => value === v); return <React.Fragment key={`ty${v}`}><line x1={sx(0)-4} x2={sx(0)+4} y1={sy(v)} y2={sy(v)} stroke={axes.color} />{label && text(label[1], label[2], v, 'end', 14)}</React.Fragment>; })}
         {axes.arrows.map((points,i) => <polygon key={`arrow${i}`} points={points.map(p=>p.join(',')).join(' ')} fill={axes.color} />)}
         {text(...axes.xName, 'x')}{text(...axes.yName, 'y')}
         {g.segments.map((segment,i) => <polyline key={i} points={segment.map(p=>p.join(',')).join(' ')} fill="none" stroke="#4f46e5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />)}
-        {g.points.map(([x,y],i) => <path key={i} d={`M ${sx(x)-4} ${sy(y)-4} L ${sx(x)+4} ${sy(y)+4} M ${sx(x)-4} ${sy(y)+4} L ${sx(x)+4} ${sy(y)-4}`} fill="none" stroke="#4f46e5" strokeWidth="2" strokeLinecap="round" />)}
-        {scaleLabel && text(width/2, 492, scaleLabel, 'middle', small ? 21 : 18)}
+        {g.points.map(([x,y],i) => <path key={i} d={`M ${sx(x)-4} ${sy(y)-4} L ${sx(x)+4} ${sy(y)+4} M ${sx(x)-4} ${sy(y)+4} L ${sx(x)+4} ${sy(y)-4}`} fill="none" stroke="#000000" strokeWidth="2" strokeLinecap="round" />)}
       </svg>;
     }
 
@@ -4527,39 +4514,34 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
       }
 
       function drawFunctionGraphOnPdf(doc, entry, x, y, w, h) {
-        const linear = entry.graphType === 'linear', plotWidth = linear ? 520 : 720;
+        const plotWidth = 520;
         const g = graphLayout(entry, plotWidth, 520, activeParams);
         const axes = graphAxisModel(entry, g);
         // Preserve square units when fitting the plot into rectangular PDF cells.
         const scale = Math.min(w / plotWidth, h / 520);
-        const sx = v => linear ? x + (w - plotWidth * scale) / 2 + v * scale : x + v / 720 * w;
-        const sy = v => linear ? y + (h - 520 * scale) / 2 + v * scale : y + v / 520 * h;
+        const sx = v => x + (w - plotWidth * scale) / 2 + v * scale;
+        const sy = v => y + (h - 520 * scale) / 2 + v * scale;
         doc.setLineWidth(0.08);doc.setDrawColor(226,232,240);
-        (entry.subtype === 'zeros' ? integerTicks(g.bounds.xMin,g.bounds.xMax) : g.xTicks).forEach(v => doc.line(sx(g.sx(v)),sy(g.top),sx(g.sx(v)),sy(g.bottom)));
+        g.xTicks.forEach(v => doc.line(sx(g.sx(v)),sy(g.top),sx(g.sx(v)),sy(g.bottom)));
         g.yTicks.forEach(v => doc.line(sx(g.left),sy(g.sy(v)),sx(g.right),sy(g.sy(v))));
-        doc.setLineWidth(0.18);doc.setDrawColor(...(linear ? [17,24,39] : [51,65,85]));
+        doc.setLineWidth(0.18);doc.setDrawColor(17,24,39);
         doc.line(sx(g.left),sy(g.sy(0)),sx(g.right),sy(g.sy(0)));
         doc.line(sx(g.sx(0)),sy(g.top),sx(g.sx(0)),sy(g.bottom));
         doc.setFont('helvetica','bold');doc.setTextColor(15,23,42);
-        doc.setFontSize(linear ? 14 * scale * 72 / 25.4 : Math.min(7, w / 11));
-        if (entry.graphType === 'linear') {
-          g.xTicks.forEach(v => doc.line(sx(g.sx(v)),sy(g.sy(0)-4),sx(g.sx(v)),sy(g.sy(0)+4)));
-          g.yTicks.forEach(v => doc.line(sx(g.sx(0)-4),sy(g.sy(v)),sx(g.sx(0)+4),sy(g.sy(v))));
-        }
+        doc.setFontSize(14 * scale * 72 / 25.4);
+        g.xTicks.forEach(v => doc.line(sx(g.sx(v)),sy(g.sy(0)-4),sx(g.sx(v)),sy(g.sy(0)+4)));
+        g.yTicks.forEach(v => doc.line(sx(g.sx(0)-4),sy(g.sy(v)),sx(g.sx(0)+4),sy(g.sy(v))));
         axes.xLabels.forEach(([v,tx,ty]) => doc.text(String(v),sx(tx),sy(ty),{align:'center'}));
         axes.yLabels.forEach(([v,tx,ty]) => doc.text(String(v),sx(tx),sy(ty),{align:'right'}));
-        if (linear) {
-          doc.setFillColor(17,24,39);
-          axes.arrows.forEach(([a,b,c]) => doc.triangle(sx(a[0]),sy(a[1]),sx(b[0]),sy(b[1]),sx(c[0]),sy(c[1]),'F'));
-        }
+        doc.setFillColor(17,24,39);
+        axes.arrows.forEach(([a,b,c]) => doc.triangle(sx(a[0]),sy(a[1]),sx(b[0]),sy(b[1]),sx(c[0]),sy(c[1]),'F'));
         doc.text('x',sx(axes.xName[0]),sy(axes.xName[1]),{align:'center'});doc.text('y',sx(axes.yName[0]),sy(axes.yName[1]),{align:'center'});
         doc.setFontSize(Math.min(6.5,w/12));
         doc.text(`Punkte: ${g.points.map(([px,py])=>`(${px}|${py})`).join('; ')}`,sx(plotWidth/2),sy(57),{align:'center'});
-        if (!linear) doc.text(`Teilung x: ${g.xStep}; y: ${g.yStep}`,sx(plotWidth/2),sy(492),{align:'center'});
         doc.setDrawColor(79,70,229);doc.setFillColor(79,70,229);doc.setLineWidth(0.23);
         for(const segment of g.segments) for(let i=1;i<segment.length;i++) doc.line(sx(segment[i-1][0]),sy(segment[i-1][1]),sx(segment[i][0]),sy(segment[i][1]));
-        const markerSize = linear ? 4 * scale : 0.55;
-        doc.setLineWidth(linear ? 2 * scale : 0.23);
+        const markerSize = 4 * scale;
+        doc.setDrawColor(0,0,0);doc.setLineWidth(2 * scale);
         g.points.forEach(([px,py])=>{
           const cx = sx(g.sx(px)), cy = sy(g.sy(py));
           doc.line(cx-markerSize,cy-markerSize,cx+markerSize,cy+markerSize);
@@ -4644,7 +4626,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
         const pdfMode = activeCardSet?.mode || gameMode;
         const pdfModeDef = GAME_MODES[pdfMode];
         const graphCard = card.entries.some(entry => entry.kind === 'graph' || entry.kind === 'geometryFigure');
-        const linearGraphCard = card.entries.some(entry => entry.kind === 'graph' && entry.graphType === 'linear');
+        const functionGraphCard = card.entries.some(entry => entry.kind === 'graph');
         const compactCard = !graphCard && pdfParams.grid <= 3;
         const pageWidth = 210;
         const pageHeight = 297;
@@ -4652,7 +4634,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
         const gapX = compactCard ? 5 : 0;
         const gapY = graphCard ? 4 : compactCard ? 5 : 8;
         const pageMarginY = graphCard ? 6 : compactCard ? 6 : 9;
-        const slotHeight = linearGraphCard ? pageHeight - pageMarginY * 2 : (pageHeight - pageMarginY * 2 - gapY) / 2;
+        const slotHeight = functionGraphCard ? pageHeight - pageMarginY * 2 : (pageHeight - pageMarginY * 2 - gapY) / 2;
         const cardW = compactCard ? (pageWidth - marginX * 2 - gapX) / 2 : pageWidth - marginX * 2;
         const slotCol = compactCard ? Math.floor(pageSlot / 2) : 0;
         const slotRow = compactCard ? pageSlot % 2 : pageSlot;
@@ -4755,8 +4737,8 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
           drawCoverOnPdf(doc);
           const pdfParams = activeCardSet?.params || params;
           const firstGraphCard = cards[0]?.entries.some(entry => entry.kind === 'graph' || entry.kind === 'geometryFigure');
-          const firstLinearGraphCard = cards[0]?.entries.some(entry => entry.kind === 'graph' && entry.graphType === 'linear');
-          const slotsPerPage = firstLinearGraphCard ? 1 : !firstGraphCard && pdfParams.grid <= 3 ? 4 : 2;
+          const firstFunctionGraphCard = cards[0]?.entries.some(entry => entry.kind === 'graph');
+          const slotsPerPage = firstFunctionGraphCard ? 1 : !firstGraphCard && pdfParams.grid <= 3 ? 4 : 2;
           cards.forEach((card, index) => {
             if (index % slotsPerPage === 0) doc.addPage();
             drawCardOnPdf(doc, card, index % slotsPerPage);
@@ -5188,7 +5170,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
                       </div>
                       <div className="rounded-3xl bg-white p-5 shadow-sm border border-slate-200">
                         <h2 className="text-xl font-bold text-slate-900">Druckhinweise</h2>
-                        <div className="mt-4 space-y-3 text-sm leading-relaxed text-slate-600"><p>Jeder PDF-Satz beginnt mit einem Deckblatt: Anleitung und Spielcode beziehungsweise Satzdatei. Freie Sätze: Satzdatei zusätzlich speichern und digital mitgeben. Auf den Spielkarten stehen nur Nummer und Kartenabgleich; dieser ist kein Ladecode. Lineare Graphenkarten: eine Karte pro Seite für gut ablesbare quadratische Gitter. Kleine Raster ohne Graphen: vier Karten pro Seite; sonst zwei.</p></div>
+                        <div className="mt-4 space-y-3 text-sm leading-relaxed text-slate-600"><p>Jeder PDF-Satz beginnt mit einem Deckblatt: Anleitung und Spielcode beziehungsweise Satzdatei. Freie Sätze: Satzdatei zusätzlich speichern und digital mitgeben. Auf den Spielkarten stehen nur Nummer und Kartenabgleich; dieser ist kein Ladecode. Funktionsgraphenkarten: eine Karte pro Seite für gut ablesbare quadratische Gitter. Kleine Raster ohne Graphen: vier Karten pro Seite; sonst zwei.</p></div>
                       </div>
 </div></details>
               </>}

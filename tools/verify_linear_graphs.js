@@ -1,5 +1,5 @@
 'use strict';
-// Regression: every supported linear graph uses unit grid lines and axis ticks.
+// Regression: all function graphs use square unit grids and a fixed set scale.
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const html = fs.readFileSync(path.join(__dirname, '../bingo_wuerfel_app_ver1.4.html'), 'utf8');
@@ -10,7 +10,7 @@ const scope = { React: {}, console, TextEncoder, TextDecoder,
   btoa: value => Buffer.from(value, 'binary').toString('base64'),
   atob: value => Buffer.from(value, 'base64').toString('binary') };
 vm.createContext(scope);
-vm.runInContext(core + plots + ';globalThis.api={graphLayout,graphScaleLabel,graphAxisModel,buildLinearFunctionTasks,buildLinearFunctionCards,normalizeParams,createCardSet,parseGameCode,EZ_PRESETS};', scope);
+vm.runInContext(core + plots + ';globalThis.api={graphLayout,graphYValue,graphAxisModel,buildLinearFunctionTasks,buildLinearFunctionCards,buildVertexTasks,buildVertexCards,normalizeParams,createCardSet,parseGameCode,EZ_PRESETS};', scope);
 const api = scope.api, plain = value => JSON.parse(JSON.stringify(value));
 const integers = (min, max) => Array.from({ length: max - min + 1 }, (_, i) => min + i);
 let graphChecks = 0;
@@ -24,7 +24,7 @@ function checkGraph(item, params) {
   assert.deepEqual(plain(g.yTicks), integers(g.bounds.yMin, g.bounds.yMax));
   assert(g.xTicks.includes(0) && g.yTicks.includes(0));
   for (const [x, y] of g.points) {
-    assert.equal(y, item.m * x + item.b);
+    assert(y === api.graphYValue(item, x), 'Reference point must lie on the function.');
     assert(g.sx(x) > g.left && g.sx(x) < g.right);
     assert(g.sy(y) > g.top && g.sy(y) < g.bottom);
   }
@@ -34,9 +34,12 @@ function checkGraph(item, params) {
   }
   for (const value of g.xLabels) assert(g.xTicks.includes(value));
   for (const value of g.yLabels) assert(g.yTicks.includes(value));
-  assert(g.sx(g.xLabelStep) - g.sx(0) >= 20 - 1e-9);
-  assert(g.sy(0) - g.sy(g.yLabelStep) >= 20 - 1e-9);
-  assert.equal(api.graphScaleLabel(item, g), '');
+  assert(g.sx(g.xLabelStep) - g.sx(0) >= 28 - 1e-9);
+  assert(g.sy(0) - g.sy(g.yLabelStep) >= 28 - 1e-9);
+  if (item.subtype === 'zeros') for (const x of [item.x1, item.x2]) {
+    assert(api.graphYValue(item,x) === 0);
+    assert(x > g.bounds.xMin && x < g.bounds.xMax);
+  }
   graphChecks++;
   return g;
 }
@@ -90,37 +93,65 @@ for (const raw of [
   }
 }
 
-// Exercise the actual PDF drawing code with physical millimeter coordinates.
-// Rectangular 2x2/3x3 cells must not stretch the square coordinate grid again.
+// All quadratic graph presets, including the distinct zero-reading task pool.
+const quadraticPresets = api.EZ_PRESETS.filter(p => p.mode === 'vertexForm' && ['graphToFormula','formulaToGraph','zeros'].includes(p.params.vertexTaskType));
+assert.equal(quadraticPresets.length,3);
+for (const preset of quadraticPresets) {
+  const params = api.normalizeParams(preset.params);
+  const graphs = params.vertexTaskType === 'formulaToGraph' ? api.buildVertexCards(params) : api.buildVertexTasks(params);
+  let expected;
+  for (const item of graphs) {
+    const g = checkGraph(item,params), unit = g.sx(1)-g.sx(0), axes = api.graphAxisModel(item,g);
+    if (!expected) expected = {unit,bounds:plain(g.bounds)};
+    assert.equal(unit,expected.unit);assert.deepEqual(plain(g.bounds),expected.bounds);
+    assert.equal(axes.arrows.length,2);
+    assert(axes.xLabels.every(([v,x,y]) => v !== 0 && y === g.sy(0)+20));
+    assert(axes.yLabels.every(([v,x,y]) => v !== 0 && x === g.sx(0)-7));
+  }
+  const set = api.createCardSet({mode:preset.mode,params,cardSeed:preset.cardSeed});
+  assert(set.paperCode.startsWith('B45'));
+  assert.deepEqual(plain(api.parseGameCode(set.paperCode).cards),plain(set.cards));
+}
+
+// Boundary samples from the entire offered quadratic parameter range.
+for (const range of [2,3,6,20]) for (const coeff of [1,8]) {
+  const aValues = [...new Set([-coeff,-1,1,coeff])];
+  const params = api.normalizeParams({vertexRange:range,vertexCoeffMax:coeff,vertexTaskType:'graphToFormula'});
+  for (const b of [-range,0,range]) for (const c of [-range,0,range]) for (const a of aValues) {
+    checkGraph({graphType:'quadratic',a,b,c},params);
+  }
+  const radius = Math.max(1,Math.min(3,Math.floor(range/2)));
+  const zeroParams = {...params,vertexTaskType:'zeros'};
+  for (const r of [0,radius]) for (const b of [-range+r,0,range-r]) for (const a of aValues) {
+    checkGraph({graphType:'quadratic',subtype:'zeros',a,b,c:-a*r*r,x1:b-r,x2:b+r},zeroParams);
+  }
+}
+
+// Actual PDF drawing code: no stretching in rectangular cells; black crosses.
 const pdfSource = source.slice(source.indexOf('function drawFunctionGraphOnPdf'), source.indexOf('function drawGeometryFigureOnPdf'));
-scope.activeParams = api.normalizeParams({ linearFunctionSlopeMax: 4, linearFunctionBMax: 6 });
 vm.runInContext(pdfSource + ';globalThis.pdfGraph=drawFunctionGraphOnPdf;', scope);
-for (const [w, h] of [[96.4, 57.65], [63.73, 37.9], [50, 90]]) {
+for (const [params,items] of [
+  [api.normalizeParams({linearFunctionSlopeMax:4,linearFunctionBMax:6}),[{graphType:'linear',m:1,b:0},{graphType:'linear',m:4,b:6},{graphType:'linear',m:-3,b:-5}]],
+  [api.normalizeParams({vertexRange:3,vertexCoeffMax:1,vertexTaskType:'formulaToGraph'}),[{graphType:'quadratic',a:1,b:3,c:3},{graphType:'quadratic',a:-1,b:-3,c:-3},{graphType:'quadratic',a:1,b:0,c:0}]],
+  [api.normalizeParams({vertexRange:6,vertexCoeffMax:1,vertexTaskType:'zeros'}),[{graphType:'quadratic',subtype:'zeros',a:1,b:-3,c:-9,x1:-6,x2:0},{graphType:'quadratic',subtype:'zeros',a:1,b:3,c:-9,x1:0,x2:6}]]
+]) for (const [w, h] of [[96.4, 57.65], [63.73, 37.9], [50, 90]]) {
+  scope.activeParams = params;
   let firstUnit;
-  for (const item of [{ m: 1, b: 0 }, { m: 4, b: 6 }, { m: -3, b: -5 }]) {
-    const lines = [], doc = { line: (...coords) => lines.push(coords) };
-    for (const method of ['setLineWidth','setDrawColor','setFont','setTextColor','setFontSize','text','setFillColor','circle','triangle']) doc[method] = () => {};
-    scope.pdfGraph(doc, { graphType: 'linear', ...item }, 10, 20, w, h);
-    const xGrid = lines.filter(([x1,y1,x2,y2]) => x1 === x2 && Math.abs(y2-y1) > 1);
-    const yGrid = lines.filter(([x1,y1,x2,y2]) => y1 === y2 && Math.abs(x2-x1) > 1);
-    assert(xGrid.length >= 15 && yGrid.length >= 15);
+  for (const item of items) {
+    let color = [];
+    const lines = [], doc = { line: (...coords) => lines.push({coords,color}), setDrawColor: (...next) => {color=next;} };
+    for (const method of ['setLineWidth','setFont','setTextColor','setFontSize','text','setFillColor','circle','triangle']) doc[method] = () => {};
+    scope.pdfGraph(doc, item, 10, 20, w, h);
+    const coords = lines.map(line=>line.coords);
+    const xGrid = coords.filter(([x1,y1,x2,y2]) => x1 === x2 && Math.abs(y2-y1) > 1);
+    const yGrid = coords.filter(([x1,y1,x2,y2]) => y1 === y2 && Math.abs(x2-x1) > 1);
+    const g = api.graphLayout(item,520,520,params);
+    assert(xGrid.length >= g.xTicks.length && yGrid.length >= g.yTicks.length);
     const ux = xGrid[1][0] - xGrid[0][0], uy = yGrid[0][1] - yGrid[1][1];
     assert(Math.abs(ux-uy) < 1e-9, 'Quadratisches Gitter muss auch im PDF erhalten bleiben.');
     if (firstUnit === undefined) firstUnit = ux;
     assert.equal(ux, firstUnit);
+    assert(lines.slice(-4).every(line=>line.color.join(',')==='0,0,0'),'Point crosses must be black.');
   }
 }
-
-// Quadratic graph bounds, tick spacing and labels retain their existing behavior.
-for (const [item, expectedBounds, xStep, yStep] of [
-  [{ a: 1, b: 0, c: 0 }, { xMin: -3, xMax: 3, yMin: -2, yMax: 6 }, 1, 2],
-  [{ a: 4, b: 3, c: -5 }, { xMin: -2, xMax: 6, yMin: -7, yMax: 13 }, 2, 5],
-  [{ a: -3, b: -4, c: 6 }, { xMin: -7, xMax: 3, yMin: -8, yMax: 8 }, 2, 5]
-]) {
-  const g = api.graphLayout({ graphType: 'quadratic', ...item }, 720, 520);
-  assert.deepEqual(plain(g.bounds), expectedBounds);
-  assert.equal(g.xStep, xStep); assert.equal(g.yStep, yStep);
-  assert.deepEqual(plain(g.xTicks), plain(g.xLabels));
-  assert.deepEqual(plain(g.yTicks), plain(g.yLabels));
-}
-console.log(`OK: ${graphChecks} lineare Graphen mit quadratischem 1er-Gitter und gleichem Maßstab pro Satz; PDF und quadratische Regression geprüft.`);
+console.log(`OK: ${graphChecks} Funktionsgraphen mit quadratischem 1er-Gitter, festem Satzmaßstab und schwarzen Kreuzen; PDF und Spielcodes geprüft.`);
