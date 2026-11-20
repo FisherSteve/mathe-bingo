@@ -1302,9 +1302,6 @@ video {
 .max-w-6xl {
   max-width: 72rem;
 }
-.max-w-\[12rem\] {
-  max-width: 12rem;
-}
 .max-w-full {
   max-width: 100%;
 }
@@ -2341,7 +2338,7 @@ video {
   <noscript>Mathe-Bingo benötigt eingeschaltetes JavaScript. Die fertige Datei funktioniert ohne Internet.</noscript>
   <div id="root"></div>
 
-  <script id="bingo-build-info" type="application/json">{"format":"MATHE-BINGO-STANDALONE","version":1,"authoringSHA256":"c2a4672f39bd92f1e006b3ca9c0775a2b2e089be6fe38ee96bbfbf1b54cb7410","jsxSHA256":"a832beccd5d61a08179a41968c501c5cf95586abbf96c1d025f51fc9b8537aae","compiledSHA256":"3d748f02e6d2b0c6d74dcac228f50fe4180932f9418eabe60e27e79a9160e801","cssSHA256":"a6cacc2bd372204341420735198866f298660ddb0e7742d64d43bd09b4edac5f","lockSHA256":"c92d3ef3dcaa9da49c1562e22bc2141322b8e9f796fefaade129106825be9962","buildTools":{"@babel/core":"7.28.5","@babel/preset-react":"7.28.5","jspdf":"2.5.1","postcss":"8.5.6","react":"18.3.1","react-dom":"18.3.1","tailwindcss":"3.4.17"},"runtime":[{"name":"react","version":"18.3.1","sha256":"d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd"},{"name":"react-dom","version":"18.3.1","sha256":"35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d"},{"name":"jspdf","version":"2.5.1","sha256":"98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"}]}</script>
+  <script id="bingo-build-info" type="application/json">{"format":"MATHE-BINGO-STANDALONE","version":1,"authoringSHA256":"0c18bda5d7f248b51464c5cc89f33bb4a1cf13d4f6ad3cc6a8cccdfe5c17dcaf","jsxSHA256":"9dd59309fb7ec3b403fcdad7d2fbadbf1c81be671b05b5a4ae9865bb48d97015","compiledSHA256":"cae40aba2996c03be223b760eac68116478425bcd36381e6e0a6bd1861fac3c0","cssSHA256":"18e05bc1d61e5872bcfd4982e711e844103a713cbe0eaf3019b22335dfec868f","lockSHA256":"c92d3ef3dcaa9da49c1562e22bc2141322b8e9f796fefaade129106825be9962","buildTools":{"@babel/core":"7.28.5","@babel/preset-react":"7.28.5","jspdf":"2.5.1","postcss":"8.5.6","react":"18.3.1","react-dom":"18.3.1","tailwindcss":"3.4.17"},"runtime":[{"name":"react","version":"18.3.1","sha256":"d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd"},{"name":"react-dom","version":"18.3.1","sha256":"35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d"},{"name":"jspdf","version":"2.5.1","sha256":"98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"}]}</script>
   <script id="bingo-app">
 const {
   useEffect,
@@ -9467,7 +9464,6 @@ function BingoCard({
   card,
   size,
   mode,
-  code,
   params
 }) {
   return /*#__PURE__*/React.createElement("div", {
@@ -9480,9 +9476,7 @@ function BingoCard({
     className: "text-lg font-bold text-slate-800"
   }, "Karte #", card.id), /*#__PURE__*/React.createElement("div", {
     className: "mt-1 text-xs text-slate-500"
-  }, GAME_MODES[mode].label, " \xB7 ", size, "\xD7", size)), /*#__PURE__*/React.createElement("div", {
-    className: "max-w-[12rem] break-words rounded-2xl bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600"
-  }, code)), /*#__PURE__*/React.createElement("div", {
+  }, GAME_MODES[mode].label, " \xB7 ", size, "\xD7", size))), /*#__PURE__*/React.createElement("div", {
     className: "bingo-preview",
     style: {
       gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))`
@@ -10565,9 +10559,6 @@ function App() {
     doc.setTextColor(51, 65, 85);
     doc.setFontSize(6.5);
     doc.text(`${pdfModeDef.label} | ${pdfParams.grid}x${pdfParams.grid} | ${pdfParams.cards} Karten`, cardX + 5, cardY + 10.5);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.text(`Abgleich (kein Ladecode): ${activeCardSet.comparisonCode}`, cardX + 5, cardY + 15);
     const startX = cardX + innerPad;
     const startY = cardY + headerH + innerPad;
     for (let row = 0; row < pdfParams.grid; row++) {
@@ -11574,8 +11565,7 @@ function App() {
     card: card,
     size: activeParams.grid,
     mode: activeMode,
-    params: activeParams,
-    code: `Abgleich (kein Ladecode): ${activeCardSet.comparisonCode}`
+    params: activeParams
   })))), renderSetCodePanel(), /*#__PURE__*/React.createElement("details", {
     className: "s6-disclosure mt-4"
   }, /*#__PURE__*/React.createElement("summary", null, "Pool-Info und Druckhinweise"), /*#__PURE__*/React.createElement("div", {
