@@ -10,7 +10,7 @@ const scope = { React: {}, console, TextEncoder, TextDecoder,
   btoa: value => Buffer.from(value, 'binary').toString('base64'),
   atob: value => Buffer.from(value, 'base64').toString('binary') };
 vm.createContext(scope);
-vm.runInContext(core + plots + ';globalThis.api={graphLayout,graphScaleLabel,buildLinearFunctionTasks,buildLinearFunctionCards,normalizeParams,createCardSet,parseGameCode,EZ_PRESETS};', scope);
+vm.runInContext(core + plots + ';globalThis.api={graphLayout,graphScaleLabel,graphAxisModel,buildLinearFunctionTasks,buildLinearFunctionCards,normalizeParams,createCardSet,parseGameCode,EZ_PRESETS};', scope);
 const api = scope.api, plain = value => JSON.parse(JSON.stringify(value));
 const integers = (min, max) => Array.from({ length: max - min + 1 }, (_, i) => min + i);
 let graphChecks = 0;
@@ -36,7 +36,7 @@ function checkGraph(item, params) {
   for (const value of g.yLabels) assert(g.yTicks.includes(value));
   assert(g.sx(g.xLabelStep) - g.sx(0) >= 20 - 1e-9);
   assert(g.sy(0) - g.sy(g.yLabelStep) >= 20 - 1e-9);
-  assert(api.graphScaleLabel(item, g).startsWith('Gitter: x 1; y 1'));
+  assert.equal(api.graphScaleLabel(item, g), '');
   graphChecks++;
   return g;
 }
@@ -58,6 +58,10 @@ for (const preset of presets) {
   let firstUnit;
   for (const item of graphs) {
     const g = checkGraph(item, params);
+    const axes = api.graphAxisModel(item, g);
+    assert.equal(axes.arrows.length, 2);
+    assert(axes.xLabels.every(([v,x,y]) => v !== 0 && x === g.sx(v) && y === g.sy(0) + 20));
+    assert(axes.yLabels.every(([v,x,y]) => v !== 0 && x === g.sx(0) - 12 && y === g.sy(v) + 4));
     const unit = g.sx(1) - g.sx(0);
     if (firstUnit === undefined) firstUnit = unit;
     assert.equal(unit, firstUnit, 'Der Abstand pro Einheit darf sich zwischen Geraden eines Satzes nicht ändern.');
@@ -95,7 +99,7 @@ for (const [w, h] of [[96.4, 57.65], [63.73, 37.9], [50, 90]]) {
   let firstUnit;
   for (const item of [{ m: 1, b: 0 }, { m: 4, b: 6 }, { m: -3, b: -5 }]) {
     const lines = [], doc = { line: (...coords) => lines.push(coords) };
-    for (const method of ['setLineWidth','setDrawColor','setFont','setTextColor','setFontSize','text','setFillColor','circle']) doc[method] = () => {};
+    for (const method of ['setLineWidth','setDrawColor','setFont','setTextColor','setFontSize','text','setFillColor','circle','triangle']) doc[method] = () => {};
     scope.pdfGraph(doc, { graphType: 'linear', ...item }, 10, 20, w, h);
     const xGrid = lines.filter(([x1,y1,x2,y2]) => x1 === x2 && Math.abs(y2-y1) > 1);
     const yGrid = lines.filter(([x1,y1,x2,y2]) => y1 === y2 && Math.abs(x2-x1) > 1);

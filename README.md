@@ -12,7 +12,7 @@ Bingo für den Mathematikunterricht: Thema wählen, Karten ausdrucken und die Au
 4. Aufgaben am Beamer zeigen und manuell oder mit Timer ziehen. Die Lernenden markieren passende Felder auf ihren Karten.
 5. Bei einem Bingo **Karte prüfen** öffnen und die Kartennummer eingeben. Satzkennung, Papiermarkierungen und Gewinnmuster kontrollieren, bevor ein Punkt vergeben wird.
 
-Die App erkennt mögliche Gewinne anhand der gezogenen Aufgaben, aber keine Markierungen auf Papier. „Vollbild“ öffnet die Präsentationsansicht; mit Escape geht es zurück.
+Die App erkennt mögliche Gewinne anhand der gezogenen Aufgaben, aber keine Markierungen auf Papier. „Vollbild“ öffnet die Präsentationsansicht; Graphen passen sich dort an den verfügbaren Platz an. Mit Escape geht es zurück.
 
 ## Vorhandene Karten wiederverwenden
 

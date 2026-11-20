@@ -1208,12 +1208,6 @@ video {
 .fixed {
   position: fixed;
 }
-.left-10 {
-  left: 2.5rem;
-}
-.top-10 {
-  top: 2.5rem;
-}
 .mx-auto {
   margin-left: auto;
   margin-right: auto;
@@ -2295,6 +2289,21 @@ video {
         font-size: 0.8rem;
       }
     }
+    /* Let presentation graphs use the remaining viewport, keeping SVG proportions. */
+    .fs-overlay-graph { display:grid; overflow:hidden; }
+    .fs-overlay-graph .fs-main { min-height:0; align-items:stretch; align-content:stretch; flex-shrink:1; }
+    .fs-overlay-graph .fs-task {
+      display:flex; flex-direction:column; align-items:center;
+      width:100%; height:100%; min-height:0;
+      padding:clamp(0.4rem,1vh,0.8rem);
+    }
+    .fs-overlay-graph .fs-task > :not(.fs-task-text) { flex-shrink:0; }
+    .fs-overlay-graph .fs-task-text {
+      display:flex; align-items:center; justify-content:center;
+      flex:1 1 0; align-self:stretch; width:100%; min-height:0;
+      margin-top:0.35rem; padding:0; overflow:hidden;
+    }
+    .fs-overlay-graph .fs-task-text > svg { display:block; width:100%; height:100% !important; }
     /* S6a: task navigation; mathematical renderers and PDF layout are unchanged. */
     :focus-visible { outline: 3px solid #4338ca !important; outline-offset: 3px; }
     .fs-overlay :focus-visible { outline-color: #fde047 !important; }
@@ -2332,7 +2341,7 @@ video {
   <noscript>Mathe-Bingo benötigt eingeschaltetes JavaScript. Die fertige Datei funktioniert ohne Internet.</noscript>
   <div id="root"></div>
 
-  <script id="bingo-build-info" type="application/json">{"format":"MATHE-BINGO-STANDALONE","version":1,"authoringSHA256":"7c54e4a96c0efd904f03c87c7091c122cff8778e8e08296dd6fb5fa260652289","jsxSHA256":"86fc494eba1b2d76f7246a82280dcdff6254950e4c0c0492892a69e904a2c4b9","compiledSHA256":"60b1c7fe630b6fcf488c5c9d7874d41d7b9a1645d9b1c77c7f5f5ab66b050877","cssSHA256":"1f2300be09b2c3d99c66430caf4cbafbdc1af88593003efe116e30be0bae3781","lockSHA256":"c92d3ef3dcaa9da49c1562e22bc2141322b8e9f796fefaade129106825be9962","buildTools":{"@babel/core":"7.28.5","@babel/preset-react":"7.28.5","jspdf":"2.5.1","postcss":"8.5.6","react":"18.3.1","react-dom":"18.3.1","tailwindcss":"3.4.17"},"runtime":[{"name":"react","version":"18.3.1","sha256":"d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd"},{"name":"react-dom","version":"18.3.1","sha256":"35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d"},{"name":"jspdf","version":"2.5.1","sha256":"98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"}]}</script>
+  <script id="bingo-build-info" type="application/json">{"format":"MATHE-BINGO-STANDALONE","version":1,"authoringSHA256":"1fd7e74659aa8670b98b3161234e2ad10d22a2a13fa0a81d0417da470cdd12fd","jsxSHA256":"fb07c8248bc948fa6c6e49b0493e4fd6c7c125670b98b76f2376f1e82c7a20c7","compiledSHA256":"bd0b637002caf0b67ec37abe8a6483d74beaa534c4021b9f3858e668c1af49f0","cssSHA256":"a6cacc2bd372204341420735198866f298660ddb0e7742d64d43bd09b4edac5f","lockSHA256":"c92d3ef3dcaa9da49c1562e22bc2141322b8e9f796fefaade129106825be9962","buildTools":{"@babel/core":"7.28.5","@babel/preset-react":"7.28.5","jspdf":"2.5.1","postcss":"8.5.6","react":"18.3.1","react-dom":"18.3.1","tailwindcss":"3.4.17"},"runtime":[{"name":"react","version":"18.3.1","sha256":"d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd"},{"name":"react-dom","version":"18.3.1","sha256":"35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d"},{"name":"jspdf","version":"2.5.1","sha256":"98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"}]}</script>
   <script id="bingo-app">
 const {
   useEffect,
@@ -9056,15 +9065,27 @@ function graphLayout(item, width, height, params) {
   };
 }
 function graphScaleLabel(item, g) {
-  if (item.graphType === 'linear') {
-    const labels = g.xLabelStep > 1 || g.yLabelStep > 1 ? ` · Zahlen: x ${g.xLabelStep}; y ${g.yLabelStep}` : '';
-    return `Gitter: x 1; y 1${labels}`;
-  }
+  if (item.graphType === 'linear') return '';
   return item.subtype === 'zeros' ? `Gitter: x 1; y ${g.yStep} · Beschriftung: x ${g.xStep}; y ${g.yStep}` : `Teilung: x ${g.xStep}; y ${g.yStep} (Skalen getrennt)`;
 }
 function graphInstruction(item) {
   if (item.subtype === 'zeros') return 'Lies die Nullstelle(n) ab.';
   return item.graphType === 'quadratic' ? 'Bestimme die Scheitelpunktform.' : 'Bestimme die Funktionsgleichung.';
+}
+
+// Shared textbook-style labels and arrowheads for screen and PDF.
+function graphAxisModel(item, g) {
+  const linear = item.graphType === 'linear',
+    x0 = g.sx(0),
+    y0 = g.sy(0);
+  return {
+    color: linear ? '#111827' : '#334155',
+    xLabels: g.xLabels.filter(v => !linear || v !== 0).map(v => [v, g.sx(v), linear ? y0 + 20 : g.bottom + 26]),
+    yLabels: g.yLabels.filter(v => !linear || v !== 0).map(v => [v, linear ? x0 - 12 : g.left - 10, g.sy(v) + (linear ? 4 : 6)]),
+    xName: [g.right + (linear ? 25 : 14), y0 + (linear ? 18 : 6)],
+    yName: [x0 + (linear ? -15 : 13), g.top - 10],
+    arrows: linear ? [[[g.right + 13, y0], [g.right, y0 - 5], [g.right, y0 + 5]], [[x0, g.top - 13], [x0 - 5, g.top], [x0 + 5, g.top]]] : []
+  };
 }
 function FunctionGraph({
   item,
@@ -9078,6 +9099,9 @@ function FunctionGraph({
       sx,
       sy
     } = g;
+  const visibleHeight = item.graphType === 'linear' ? 470 : height;
+  const scaleLabel = graphScaleLabel(item, g);
+  const axes = graphAxisModel(item, g);
   const text = (x, y, label, anchor = 'middle', size = 19) => /*#__PURE__*/React.createElement("text", {
     x: x,
     y: y,
@@ -9088,12 +9112,12 @@ function FunctionGraph({
   }, label);
   return /*#__PURE__*/React.createElement("svg", {
     width: width,
-    height: height,
+    height: visibleHeight,
     style: {
       width: small ? '100%' : undefined,
       height: 'auto'
     },
-    viewBox: `0 0 ${width} ${height}`,
+    viewBox: `0 0 ${width} ${visibleHeight}`,
     role: "img",
     "aria-label": "Funktionsgraph mit beschrifteten Achsen und Skalen",
     className: "inline-block max-w-full rounded-xl bg-white/95 text-slate-800 shadow-sm"
@@ -9118,32 +9142,42 @@ function FunctionGraph({
     x2: g.right,
     y1: sy(0),
     y2: sy(0),
-    stroke: "#334155",
+    stroke: axes.color,
     strokeWidth: "2"
   }), /*#__PURE__*/React.createElement("line", {
     x1: sx(0),
     x2: sx(0),
     y1: g.top,
     y2: g.bottom,
-    stroke: "#334155",
+    stroke: axes.color,
     strokeWidth: "2"
-  }), g.xTicks.map(v => /*#__PURE__*/React.createElement(React.Fragment, {
-    key: `tx${v}`
-  }, /*#__PURE__*/React.createElement("line", {
-    x1: sx(v),
-    x2: sx(v),
-    y1: sy(0) - 4,
-    y2: sy(0) + 4,
-    stroke: "#334155"
-  }), g.xLabels.includes(v) && text(sx(v), g.bottom + 26, v, 'middle', item.graphType === 'linear' ? 14 : small ? 23 : 19))), g.yTicks.map(v => /*#__PURE__*/React.createElement(React.Fragment, {
-    key: `ty${v}`
-  }, /*#__PURE__*/React.createElement("line", {
-    x1: sx(0) - 4,
-    x2: sx(0) + 4,
-    y1: sy(v),
-    y2: sy(v),
-    stroke: "#334155"
-  }), g.yLabels.includes(v) && text(g.left - 10, sy(v) + 6, v, 'end', item.graphType === 'linear' ? 14 : small ? 23 : 19))), text(g.right + 14, sy(0) + 6, 'x'), text(sx(0) + 13, g.top - 10, 'y'), g.segments.map((segment, i) => /*#__PURE__*/React.createElement("polyline", {
+  }), g.xTicks.map(v => {
+    const label = axes.xLabels.find(([value]) => value === v);
+    return /*#__PURE__*/React.createElement(React.Fragment, {
+      key: `tx${v}`
+    }, /*#__PURE__*/React.createElement("line", {
+      x1: sx(v),
+      x2: sx(v),
+      y1: sy(0) - 4,
+      y2: sy(0) + 4,
+      stroke: axes.color
+    }), label && text(label[1], label[2], v, 'middle', item.graphType === 'linear' ? 14 : small ? 23 : 19));
+  }), g.yTicks.map(v => {
+    const label = axes.yLabels.find(([value]) => value === v);
+    return /*#__PURE__*/React.createElement(React.Fragment, {
+      key: `ty${v}`
+    }, /*#__PURE__*/React.createElement("line", {
+      x1: sx(0) - 4,
+      x2: sx(0) + 4,
+      y1: sy(v),
+      y2: sy(v),
+      stroke: axes.color
+    }), label && text(label[1], label[2], v, 'end', item.graphType === 'linear' ? 14 : small ? 23 : 19));
+  }), axes.arrows.map((points, i) => /*#__PURE__*/React.createElement("polygon", {
+    key: `arrow${i}`,
+    points: points.map(p => p.join(',')).join(' '),
+    fill: axes.color
+  })), text(...axes.xName, 'x'), text(...axes.yName, 'y'), g.segments.map((segment, i) => /*#__PURE__*/React.createElement("polyline", {
     key: i,
     points: segment.map(p => p.join(',')).join(' '),
     fill: "none",
@@ -9157,7 +9191,7 @@ function FunctionGraph({
     cy: sy(y),
     r: "4",
     fill: "#4f46e5"
-  })), text(width / 2, 492, graphScaleLabel(item, g), 'middle', small ? 21 : 18));
+  })), scaleLabel && text(width / 2, 492, scaleLabel, 'middle', small ? 21 : 18));
 }
 
 // Schematic figures: labels encode the exact model, pixel lengths are not data.
@@ -10355,6 +10389,7 @@ function App() {
     const linear = entry.graphType === 'linear',
       plotWidth = linear ? 520 : 720;
     const g = graphLayout(entry, plotWidth, 520, activeParams);
+    const axes = graphAxisModel(entry, g);
     // Preserve square units when fitting the plot into rectangular PDF cells.
     const scale = Math.min(w / plotWidth, h / 520);
     const sx = v => linear ? x + (w - plotWidth * scale) / 2 + v * scale : x + v / 720 * w;
@@ -10364,7 +10399,7 @@ function App() {
     (entry.subtype === 'zeros' ? integerTicks(g.bounds.xMin, g.bounds.xMax) : g.xTicks).forEach(v => doc.line(sx(g.sx(v)), sy(g.top), sx(g.sx(v)), sy(g.bottom)));
     g.yTicks.forEach(v => doc.line(sx(g.left), sy(g.sy(v)), sx(g.right), sy(g.sy(v))));
     doc.setLineWidth(0.18);
-    doc.setDrawColor(51, 65, 85);
+    doc.setDrawColor(...(linear ? [17, 24, 39] : [51, 65, 85]));
     doc.line(sx(g.left), sy(g.sy(0)), sx(g.right), sy(g.sy(0)));
     doc.line(sx(g.sx(0)), sy(g.top), sx(g.sx(0)), sy(g.bottom));
     doc.setFont('helvetica', 'bold');
@@ -10374,23 +10409,27 @@ function App() {
       g.xTicks.forEach(v => doc.line(sx(g.sx(v)), sy(g.sy(0) - 4), sx(g.sx(v)), sy(g.sy(0) + 4)));
       g.yTicks.forEach(v => doc.line(sx(g.sx(0) - 4), sy(g.sy(v)), sx(g.sx(0) + 4), sy(g.sy(v))));
     }
-    g.xLabels.forEach(v => doc.text(String(v), sx(g.sx(v)), sy(g.bottom + 26), {
+    axes.xLabels.forEach(([v, tx, ty]) => doc.text(String(v), sx(tx), sy(ty), {
       align: 'center'
     }));
-    g.yLabels.forEach(v => doc.text(String(v), sx(g.left - 10), sy(g.sy(v) + 6), {
+    axes.yLabels.forEach(([v, tx, ty]) => doc.text(String(v), sx(tx), sy(ty), {
       align: 'right'
     }));
-    doc.text('x', sx(g.right + 14), sy(g.sy(0) + 6), {
+    if (linear) {
+      doc.setFillColor(17, 24, 39);
+      axes.arrows.forEach(([a, b, c]) => doc.triangle(sx(a[0]), sy(a[1]), sx(b[0]), sy(b[1]), sx(c[0]), sy(c[1]), 'F'));
+    }
+    doc.text('x', sx(axes.xName[0]), sy(axes.xName[1]), {
       align: 'center'
     });
-    doc.text('y', sx(g.sx(0) + 13), sy(g.top - 10), {
+    doc.text('y', sx(axes.yName[0]), sy(axes.yName[1]), {
       align: 'center'
     });
     doc.setFontSize(Math.min(6.5, w / 12));
     doc.text(`Punkte: ${g.points.map(([px, py]) => `(${px}|${py})`).join('; ')}`, sx(plotWidth / 2), sy(57), {
       align: 'center'
     });
-    doc.text(entry.graphType === 'linear' ? graphScaleLabel(entry, g) : `Teilung x: ${g.xStep}; y: ${g.yStep}`, sx(plotWidth / 2), sy(492), {
+    if (!linear) doc.text(`Teilung x: ${g.xStep}; y: ${g.yStep}`, sx(plotWidth / 2), sy(492), {
       align: 'center'
     });
     doc.setDrawColor(79, 70, 229);
@@ -11971,7 +12010,7 @@ function App() {
     role: "dialog",
     "aria-modal": "true",
     "aria-label": "Pr\xE4sentation",
-    className: "fs-overlay no-print",
+    className: `fs-overlay no-print ${currentDraw?.kind === 'graph' ? 'fs-overlay-graph' : ''}`,
     onKeyDown: handlePresentationKeys
   }, /*#__PURE__*/React.createElement("div", {
     className: "fs-topbar"
