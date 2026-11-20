@@ -3572,7 +3572,13 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
     function graphLayout(item, width, height) {
       const bounds = getGraphBounds(item);
       const left = width * 0.13, right = width * 0.93, top = height * 0.18, bottom = height * 0.82;
-      const xStep = graphTickStep(bounds.xMax - bounds.xMin, 7), yStep = graphTickStep(bounds.yMax - bounds.yMin, 5);
+      // Linear graphs always use a unit grid, in tasks, cards and PDF alike.
+      // Only number labels may be sparser for large freely chosen ranges.
+      const linear = item.graphType === 'linear';
+      const xStep = linear ? 1 : graphTickStep(bounds.xMax - bounds.xMin, 7);
+      const yStep = linear ? 1 : graphTickStep(bounds.yMax - bounds.yMin, 5);
+      const xLabelStep = linear ? graphTickStep(bounds.xMax - bounds.xMin, (right - left) / 32) : xStep;
+      const yLabelStep = linear ? graphTickStep(bounds.yMax - bounds.yMin, (bottom - top) / 22) : yStep;
       const sx = x => left + (x - bounds.xMin) / (bounds.xMax - bounds.xMin) * (right - left);
       const sy = y => bottom - (y - bounds.yMin) / (bounds.yMax - bounds.yMin) * (bottom - top);
       const segments = []; let segment = [];
@@ -3583,7 +3589,18 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
         else if (segment.length) { segments.push(segment); segment = []; }
       }
       if (segment.length) segments.push(segment);
-      return { bounds, left, right, top, bottom, sx, sy, xStep, yStep, xTicks: integerTicks(bounds.xMin, bounds.xMax, xStep), yTicks: integerTicks(bounds.yMin, bounds.yMax, yStep), segments, points: graphPoints(item) };
+      return { bounds, left, right, top, bottom, sx, sy, xStep, yStep, xLabelStep, yLabelStep,
+        xTicks: integerTicks(bounds.xMin, bounds.xMax, xStep), yTicks: integerTicks(bounds.yMin, bounds.yMax, yStep),
+        xLabels: integerTicks(bounds.xMin, bounds.xMax, xLabelStep), yLabels: integerTicks(bounds.yMin, bounds.yMax, yLabelStep),
+        segments, points: graphPoints(item) };
+    }
+
+    function graphScaleLabel(item, g) {
+      if (item.graphType === 'linear') {
+        const labels = g.xLabelStep > 1 || g.yLabelStep > 1 ? ` · Zahlen: x ${g.xLabelStep}; y ${g.yLabelStep}` : '';
+        return `Gitter: x 1; y 1${labels}`;
+      }
+      return item.subtype === 'zeros' ? `Gitter: x 1; y ${g.yStep} · Beschriftung: x ${g.xStep}; y ${g.yStep}` : `Teilung: x ${g.xStep}; y ${g.yStep} (Skalen getrennt)`;
     }
 
     function graphInstruction(item) {
@@ -3602,12 +3619,12 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
         {g.yTicks.map(v => <line key={`gy${v}`} x1={g.left} x2={g.right} y1={sy(v)} y2={sy(v)} stroke="#e2e8f0" strokeWidth="1" />)}
         <line x1={g.left} x2={g.right} y1={sy(0)} y2={sy(0)} stroke="#334155" strokeWidth="2" />
         <line x1={sx(0)} x2={sx(0)} y1={g.top} y2={g.bottom} stroke="#334155" strokeWidth="2" />
-        {g.xTicks.map(v => <React.Fragment key={`tx${v}`}><line x1={sx(v)} x2={sx(v)} y1={sy(0)-4} y2={sy(0)+4} stroke="#334155" />{text(sx(v), g.bottom + 26, v, 'middle', small ? 23 : 19)}</React.Fragment>)}
-        {g.yTicks.map(v => <React.Fragment key={`ty${v}`}><line x1={sx(0)-4} x2={sx(0)+4} y1={sy(v)} y2={sy(v)} stroke="#334155" />{text(g.left-10, sy(v)+6, v, 'end', small ? 23 : 19)}</React.Fragment>)}
+        {g.xTicks.map(v => <React.Fragment key={`tx${v}`}><line x1={sx(v)} x2={sx(v)} y1={sy(0)-4} y2={sy(0)+4} stroke="#334155" />{g.xLabels.includes(v) && text(sx(v), g.bottom + 26, v, 'middle', small ? 23 : 19)}</React.Fragment>)}
+        {g.yTicks.map(v => <React.Fragment key={`ty${v}`}><line x1={sx(0)-4} x2={sx(0)+4} y1={sy(v)} y2={sy(v)} stroke="#334155" />{g.yLabels.includes(v) && text(g.left-10, sy(v)+6, v, 'end', item.graphType === 'linear' ? 19 : small ? 23 : 19)}</React.Fragment>)}
         {text(g.right+14, sy(0)+6, 'x')}{text(sx(0)+13, g.top-10, 'y')}
         {g.segments.map((segment,i) => <polyline key={i} points={segment.map(p=>p.join(',')).join(' ')} fill="none" stroke="#4f46e5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />)}
         {g.points.map(([x,y],i) => <circle key={i} cx={sx(x)} cy={sy(y)} r="4" fill="#4f46e5" />)}
-        {text(360, 492, item.subtype === 'zeros' ? `Gitter: x 1; y ${g.yStep} · Beschriftung: x ${g.xStep}; y ${g.yStep}` : `Teilung: x ${g.xStep}; y ${g.yStep} (Skalen getrennt)`, 'middle', small ? 21 : 18)}
+        {text(360, 492, graphScaleLabel(item, g), 'middle', small ? 21 : 18)}
       </svg>;
     }
 
@@ -4472,12 +4489,16 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
         doc.line(sx(g.sx(0)),sy(g.top),sx(g.sx(0)),sy(g.bottom));
         doc.setFont('helvetica','bold');doc.setTextColor(15,23,42);
         doc.setFontSize(Math.min(7, w / 11));
-        g.xTicks.forEach(v => doc.text(String(v),sx(g.sx(v)),sy(g.bottom+26),{align:'center'}));
-        g.yTicks.forEach(v => doc.text(String(v),sx(g.left-10),sy(g.sy(v)+6),{align:'right'}));
+        if (entry.graphType === 'linear') {
+          g.xTicks.forEach(v => doc.line(sx(g.sx(v)),sy(g.sy(0)-4),sx(g.sx(v)),sy(g.sy(0)+4)));
+          g.yTicks.forEach(v => doc.line(sx(g.sx(0)-4),sy(g.sy(v)),sx(g.sx(0)+4),sy(g.sy(v))));
+        }
+        g.xLabels.forEach(v => doc.text(String(v),sx(g.sx(v)),sy(g.bottom+26),{align:'center'}));
+        g.yLabels.forEach(v => doc.text(String(v),sx(g.left-10),sy(g.sy(v)+6),{align:'right'}));
         doc.text('x',sx(g.right+14),sy(g.sy(0)+6),{align:'center'});doc.text('y',sx(g.sx(0)+13),sy(g.top-10),{align:'center'});
         doc.setFontSize(Math.min(6.5,w/12));
         doc.text(`Punkte: ${g.points.map(([px,py])=>`(${px}|${py})`).join('; ')}`,sx(360),sy(57),{align:'center'});
-        doc.text(`Teilung x: ${g.xStep}; y: ${g.yStep}`,sx(360),sy(492),{align:'center'});
+        doc.text(entry.graphType === 'linear' ? graphScaleLabel(entry, g) : `Teilung x: ${g.xStep}; y: ${g.yStep}`,sx(360),sy(492),{align:'center'});
         doc.setDrawColor(79,70,229);doc.setFillColor(79,70,229);doc.setLineWidth(0.23);
         for(const segment of g.segments) for(let i=1;i<segment.length;i++) doc.line(sx(segment[i-1][0]),sy(segment[i-1][1]),sx(segment[i][0]),sy(segment[i][1]));
         g.points.forEach(([px,py])=>doc.circle(sx(g.sx(px)),sy(g.sy(py)),0.4,'F'));
@@ -4841,6 +4862,9 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
               b negativ
             </label>
           </div>
+          {['graphToFormula', 'formulaToGraph'].includes(linearFunctionTaskType) && (
+            <p className="mt-4 text-sm text-slate-600">Auf beiden Achsen entspricht jeder Gitterschritt 1. Der sichtbare Bereich passt sich der Geraden an. Bei großen Wertebereichen werden für bessere Lesbarkeit weniger Zahlen beschriftet; das Gitter bleibt in 1er-Schritten.</p>
+          )}
           {linearFunctionTaskType === 'formulaToGraph' && Number(gridSizeInput) > 2 && (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
               Formel → Graph ist ab 3×3 auf Papier schwer lesbar. Für Klassenzimmer und Vollbild ist 2×2 empfohlen.

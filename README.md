@@ -32,6 +32,7 @@ Enthalten sind Multiplikation, Brüche, Terme, lineare Gleichungen, Potenzen und
 
 - Version 1.4 ist eine Desktop-Beta. iPad und Safari sind noch nicht geprüft.
 - Graphen- und Figurenkarten sind auf 2×2 und 3×3 begrenzt. Große Kartensätze mit Grafiken können sehr große PDFs erzeugen.
+- Lineare Funktionen (Graph ↔ Formel): Auf beiden Achsen entspricht jeder Gitterschritt 1, auch im PDF. Der sichtbare Ausschnitt passt sich der Geraden an. Bei großen frei gewählten Wertebereichen werden weniger Zahlen beschriftet; das Gitter bleibt in 1er-Schritten.
 - Punkte werden nach Möglichkeit im jeweiligen Browser gespeichert. Bei gesperrtem oder vollem Speicher bleiben neue Punkte nur im geöffneten Fenster erhalten. Satzdateien enthalten keine Punkte; beim Weitergeben der App wird der Punktestand nicht übertragen.
 
 ## Quellcode bearbeiten

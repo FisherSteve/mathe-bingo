@@ -7,7 +7,7 @@
     "build": "node tools/build_standalone.js",
     "check:build": "node tools/build_standalone.js --check",
     "test:storage": "node tools/audit_s6b_storage.js",
-    "test": "node tools/audit_s6b_storage.js && node tools/audit_s6b_package.js && node tools/verify_bingo_card_check.js --version=1.4 --all-presets"
+    "test": "node tools/verify_linear_graphs.js && node tools/audit_s6b_storage.js && node tools/audit_s6b_package.js && node tools/verify_bingo_card_check.js --version=1.4 --all-presets"
   },
   "devDependencies": {
     "@babel/core": "7.28.5",

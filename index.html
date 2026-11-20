@@ -2332,7 +2332,7 @@ video {
   <noscript>Mathe-Bingo benötigt eingeschaltetes JavaScript. Die fertige Datei funktioniert ohne Internet.</noscript>
   <div id="root"></div>
 
-  <script id="bingo-build-info" type="application/json">{"format":"MATHE-BINGO-STANDALONE","version":1,"authoringSHA256":"55b99f736d1c7520132eeeb1fe1df79f1b86e2d9c9e0e35420c4a6cc8cd3e550","jsxSHA256":"e4166d5df96255e2b43c423e81d3d31ee2aa273720cc8af871a2f4f26b107e1e","compiledSHA256":"db0e273de2646c199dbebfabe567ffc098ba3df8d9ffa1f41540f332169a94f7","cssSHA256":"1f2300be09b2c3d99c66430caf4cbafbdc1af88593003efe116e30be0bae3781","lockSHA256":"c92d3ef3dcaa9da49c1562e22bc2141322b8e9f796fefaade129106825be9962","buildTools":{"@babel/core":"7.28.5","@babel/preset-react":"7.28.5","jspdf":"2.5.1","postcss":"8.5.6","react":"18.3.1","react-dom":"18.3.1","tailwindcss":"3.4.17"},"runtime":[{"name":"react","version":"18.3.1","sha256":"d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd"},{"name":"react-dom","version":"18.3.1","sha256":"35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d"},{"name":"jspdf","version":"2.5.1","sha256":"98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"}]}</script>
+  <script id="bingo-build-info" type="application/json">{"format":"MATHE-BINGO-STANDALONE","version":1,"authoringSHA256":"7b342e4894120fac0887bc7547ee03c4d60b4934405da29fa5fad659c034a0a0","jsxSHA256":"74828fdd63b84ad5f38a5568b0a48e1192197e3a50a020eb1e6eba6af2d4bc10","compiledSHA256":"921afe8feb090ce750d0160e459634e1c8d4e73f976a4a7b6d01328527f025e7","cssSHA256":"1f2300be09b2c3d99c66430caf4cbafbdc1af88593003efe116e30be0bae3781","lockSHA256":"c92d3ef3dcaa9da49c1562e22bc2141322b8e9f796fefaade129106825be9962","buildTools":{"@babel/core":"7.28.5","@babel/preset-react":"7.28.5","jspdf":"2.5.1","postcss":"8.5.6","react":"18.3.1","react-dom":"18.3.1","tailwindcss":"3.4.17"},"runtime":[{"name":"react","version":"18.3.1","sha256":"d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd"},{"name":"react-dom","version":"18.3.1","sha256":"35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d"},{"name":"jspdf","version":"2.5.1","sha256":"98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"}]}</script>
   <script id="bingo-app">
 const {
   useEffect,
@@ -8991,8 +8991,13 @@ function graphLayout(item, width, height) {
     right = width * 0.93,
     top = height * 0.18,
     bottom = height * 0.82;
-  const xStep = graphTickStep(bounds.xMax - bounds.xMin, 7),
-    yStep = graphTickStep(bounds.yMax - bounds.yMin, 5);
+  // Linear graphs always use a unit grid, in tasks, cards and PDF alike.
+  // Only number labels may be sparser for large freely chosen ranges.
+  const linear = item.graphType === 'linear';
+  const xStep = linear ? 1 : graphTickStep(bounds.xMax - bounds.xMin, 7);
+  const yStep = linear ? 1 : graphTickStep(bounds.yMax - bounds.yMin, 5);
+  const xLabelStep = linear ? graphTickStep(bounds.xMax - bounds.xMin, (right - left) / 32) : xStep;
+  const yLabelStep = linear ? graphTickStep(bounds.yMax - bounds.yMin, (bottom - top) / 22) : yStep;
   const sx = x => left + (x - bounds.xMin) / (bounds.xMax - bounds.xMin) * (right - left);
   const sy = y => bottom - (y - bounds.yMin) / (bounds.yMax - bounds.yMin) * (bottom - top);
   const segments = [];
@@ -9017,11 +9022,22 @@ function graphLayout(item, width, height) {
     sy,
     xStep,
     yStep,
+    xLabelStep,
+    yLabelStep,
     xTicks: integerTicks(bounds.xMin, bounds.xMax, xStep),
     yTicks: integerTicks(bounds.yMin, bounds.yMax, yStep),
+    xLabels: integerTicks(bounds.xMin, bounds.xMax, xLabelStep),
+    yLabels: integerTicks(bounds.yMin, bounds.yMax, yLabelStep),
     segments,
     points: graphPoints(item)
   };
+}
+function graphScaleLabel(item, g) {
+  if (item.graphType === 'linear') {
+    const labels = g.xLabelStep > 1 || g.yLabelStep > 1 ? ` · Zahlen: x ${g.xLabelStep}; y ${g.yLabelStep}` : '';
+    return `Gitter: x 1; y 1${labels}`;
+  }
+  return item.subtype === 'zeros' ? `Gitter: x 1; y ${g.yStep} · Beschriftung: x ${g.xStep}; y ${g.yStep}` : `Teilung: x ${g.xStep}; y ${g.yStep} (Skalen getrennt)`;
 }
 function graphInstruction(item) {
   if (item.subtype === 'zeros') return 'Lies die Nullstelle(n) ab.';
@@ -9095,7 +9111,7 @@ function FunctionGraph({
     y1: sy(0) - 4,
     y2: sy(0) + 4,
     stroke: "#334155"
-  }), text(sx(v), g.bottom + 26, v, 'middle', small ? 23 : 19))), g.yTicks.map(v => /*#__PURE__*/React.createElement(React.Fragment, {
+  }), g.xLabels.includes(v) && text(sx(v), g.bottom + 26, v, 'middle', small ? 23 : 19))), g.yTicks.map(v => /*#__PURE__*/React.createElement(React.Fragment, {
     key: `ty${v}`
   }, /*#__PURE__*/React.createElement("line", {
     x1: sx(0) - 4,
@@ -9103,7 +9119,7 @@ function FunctionGraph({
     y1: sy(v),
     y2: sy(v),
     stroke: "#334155"
-  }), text(g.left - 10, sy(v) + 6, v, 'end', small ? 23 : 19))), text(g.right + 14, sy(0) + 6, 'x'), text(sx(0) + 13, g.top - 10, 'y'), g.segments.map((segment, i) => /*#__PURE__*/React.createElement("polyline", {
+  }), g.yLabels.includes(v) && text(g.left - 10, sy(v) + 6, v, 'end', item.graphType === 'linear' ? 19 : small ? 23 : 19))), text(g.right + 14, sy(0) + 6, 'x'), text(sx(0) + 13, g.top - 10, 'y'), g.segments.map((segment, i) => /*#__PURE__*/React.createElement("polyline", {
     key: i,
     points: segment.map(p => p.join(',')).join(' '),
     fill: "none",
@@ -9117,7 +9133,7 @@ function FunctionGraph({
     cy: sy(y),
     r: "4",
     fill: "#4f46e5"
-  })), text(360, 492, item.subtype === 'zeros' ? `Gitter: x 1; y ${g.yStep} · Beschriftung: x ${g.xStep}; y ${g.yStep}` : `Teilung: x ${g.xStep}; y ${g.yStep} (Skalen getrennt)`, 'middle', small ? 21 : 18));
+  })), text(360, 492, graphScaleLabel(item, g), 'middle', small ? 21 : 18));
 }
 
 // Schematic figures: labels encode the exact model, pixel lengths are not data.
@@ -10322,10 +10338,14 @@ function App() {
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(Math.min(7, w / 11));
-    g.xTicks.forEach(v => doc.text(String(v), sx(g.sx(v)), sy(g.bottom + 26), {
+    if (entry.graphType === 'linear') {
+      g.xTicks.forEach(v => doc.line(sx(g.sx(v)), sy(g.sy(0) - 4), sx(g.sx(v)), sy(g.sy(0) + 4)));
+      g.yTicks.forEach(v => doc.line(sx(g.sx(0) - 4), sy(g.sy(v)), sx(g.sx(0) + 4), sy(g.sy(v))));
+    }
+    g.xLabels.forEach(v => doc.text(String(v), sx(g.sx(v)), sy(g.bottom + 26), {
       align: 'center'
     }));
-    g.yTicks.forEach(v => doc.text(String(v), sx(g.left - 10), sy(g.sy(v) + 6), {
+    g.yLabels.forEach(v => doc.text(String(v), sx(g.left - 10), sy(g.sy(v) + 6), {
       align: 'right'
     }));
     doc.text('x', sx(g.right + 14), sy(g.sy(0) + 6), {
@@ -10338,7 +10358,7 @@ function App() {
     doc.text(`Punkte: ${g.points.map(([px, py]) => `(${px}|${py})`).join('; ')}`, sx(360), sy(57), {
       align: 'center'
     });
-    doc.text(`Teilung x: ${g.xStep}; y: ${g.yStep}`, sx(360), sy(492), {
+    doc.text(entry.graphType === 'linear' ? graphScaleLabel(entry, g) : `Teilung x: ${g.xStep}; y: ${g.yStep}`, sx(360), sy(492), {
       align: 'center'
     });
     doc.setDrawColor(79, 70, 229);
@@ -10980,7 +11000,9 @@ function App() {
     checked: linearFunctionNegativeIntercepts,
     onChange: e => setLinearFunctionNegativeIntercepts(e.target.checked),
     className: "h-5 w-5 accent-cyan-600"
-  }), "b negativ")), linearFunctionTaskType === 'formulaToGraph' && Number(gridSizeInput) > 2 && /*#__PURE__*/React.createElement("div", {
+  }), "b negativ")), ['graphToFormula', 'formulaToGraph'].includes(linearFunctionTaskType) && /*#__PURE__*/React.createElement("p", {
+    className: "mt-4 text-sm text-slate-600"
+  }, "Auf beiden Achsen entspricht jeder Gitterschritt 1. Der sichtbare Bereich passt sich der Geraden an. Bei gro\xDFen Wertebereichen werden f\xFCr bessere Lesbarkeit weniger Zahlen beschriftet; das Gitter bleibt in 1er-Schritten."), linearFunctionTaskType === 'formulaToGraph' && Number(gridSizeInput) > 2 && /*#__PURE__*/React.createElement("div", {
     className: "mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
   }, "Formel \u2192 Graph ist ab 3\xD73 auf Papier schwer lesbar. F\xFCr Klassenzimmer und Vollbild ist 2\xD72 empfohlen."));
   const GeometrySettings = () => {
