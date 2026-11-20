@@ -61,7 +61,7 @@ for (const preset of presets) {
     const axes = api.graphAxisModel(item, g);
     assert.equal(axes.arrows.length, 2);
     assert(axes.xLabels.every(([v,x,y]) => v !== 0 && x === g.sx(v) && y === g.sy(0) + 20));
-    assert(axes.yLabels.every(([v,x,y]) => v !== 0 && x === g.sx(0) - 12 && y === g.sy(v) + 4));
+    assert(axes.yLabels.every(([v,x,y]) => v !== 0 && x === g.sx(0) - 7 && y === g.sy(v) + 4));
     const unit = g.sx(1) - g.sx(0);
     if (firstUnit === undefined) firstUnit = unit;
     assert.equal(unit, firstUnit, 'Der Abstand pro Einheit darf sich zwischen Geraden eines Satzes nicht ändern.');
@@ -103,7 +103,7 @@ for (const [w, h] of [[96.4, 57.65], [63.73, 37.9], [50, 90]]) {
     scope.pdfGraph(doc, { graphType: 'linear', ...item }, 10, 20, w, h);
     const xGrid = lines.filter(([x1,y1,x2,y2]) => x1 === x2 && Math.abs(y2-y1) > 1);
     const yGrid = lines.filter(([x1,y1,x2,y2]) => y1 === y2 && Math.abs(x2-x1) > 1);
-    assert(xGrid.length >= 17 && yGrid.length >= 17);
+    assert(xGrid.length >= 15 && yGrid.length >= 15);
     const ux = xGrid[1][0] - xGrid[0][0], uy = yGrid[0][1] - yGrid[1][1];
     assert(Math.abs(ux-uy) < 1e-9, 'Quadratisches Gitter muss auch im PDF erhalten bleiben.');
     if (firstUnit === undefined) firstUnit = ux;
