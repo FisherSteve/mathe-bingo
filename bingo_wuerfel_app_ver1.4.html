@@ -1768,7 +1768,7 @@
         buildTaskPool: buildLinearFunctionTasks,
         buildCardPool: buildLinearFunctionCards,
         prepareTask: task => task,
-        renderTask: task => <FunctionTask item={task} />
+        renderTask: (task, params) => <FunctionTask item={task} params={params} />
       },
       geometry2d: {
         label: 'Geometrische Figuren',
@@ -3545,10 +3545,18 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
 
     // A single finite plot model drives SVG and exported PDF, including scale.
     function graphPoints(item) {
-      return item.graphType === 'linear' ? [[0, item.b], [1, item.m + item.b]] : [[item.b, item.c], [item.b + 1, item.c + item.a]];
+      // Step towards the x-axis so both integer reference points fit the shared
+      // range without enlarging the viewport for individual lines.
+      const direction = item.b * item.m > 0 ? -1 : 1;
+      return item.graphType === 'linear' ? [[0, item.b], [direction, item.m * direction + item.b]] : [[item.b, item.c], [item.b + 1, item.c + item.a]];
     }
 
-    function getGraphBounds(item) {
+    function getGraphBounds(item, params = {}) {
+      if (item.graphType === 'linear') {
+        // The complete configured pool, never the current line, sets the range.
+        const extent = Math.max(clampNumber(params.linearFunctionBMax, 0, 30, 30), clampNumber(params.linearFunctionSlopeMax, 1, 12, 12)) + 2;
+        return { xMin: -extent, xMax: extent, yMin: -extent, yMax: extent };
+      }
       const points = [...graphPoints(item), [0, 0]];
       if (item.graphType === 'quadratic') {
         points.push([item.b - 2, item.c + item.a * 4], [item.b + 2, item.c + item.a * 4]);
@@ -3569,16 +3577,22 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
       return [1, 2, 5, 10].map(n => n * power).find(n => n >= wanted) || power * 10;
     }
 
-    function graphLayout(item, width, height) {
-      const bounds = getGraphBounds(item);
-      const left = width * 0.13, right = width * 0.93, top = height * 0.18, bottom = height * 0.82;
+    function graphLayout(item, width, height, params) {
+      const bounds = getGraphBounds(item, params);
+      let left = width * 0.13, right = width * 0.93, top = height * 0.18, bottom = height * 0.82;
       // Linear graphs always use a unit grid, in tasks, cards and PDF alike.
       // Only number labels may be sparser for large freely chosen ranges.
       const linear = item.graphType === 'linear';
+      if (linear) {
+        const unit = Math.min((right - left) / (bounds.xMax - bounds.xMin), (bottom - top) / (bounds.yMax - bounds.yMin));
+        const xHalf = bounds.xMax, yHalf = bounds.yMax;
+        left = width / 2 - xHalf * unit; right = width / 2 + xHalf * unit;
+        top = height / 2 - yHalf * unit; bottom = height / 2 + yHalf * unit;
+      }
       const xStep = linear ? 1 : graphTickStep(bounds.xMax - bounds.xMin, 7);
       const yStep = linear ? 1 : graphTickStep(bounds.yMax - bounds.yMin, 5);
-      const xLabelStep = linear ? graphTickStep(bounds.xMax - bounds.xMin, (right - left) / 32) : xStep;
-      const yLabelStep = linear ? graphTickStep(bounds.yMax - bounds.yMin, (bottom - top) / 22) : yStep;
+      const xLabelStep = linear ? graphTickStep(bounds.xMax - bounds.xMin, (right - left) / 20) : xStep;
+      const yLabelStep = linear ? graphTickStep(bounds.yMax - bounds.yMin, (bottom - top) / 20) : yStep;
       const sx = x => left + (x - bounds.xMin) / (bounds.xMax - bounds.xMin) * (right - left);
       const sy = y => bottom - (y - bounds.yMin) / (bounds.yMax - bounds.yMin) * (bottom - top);
       const segments = []; let segment = [];
@@ -3608,23 +3622,23 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
       return item.graphType === 'quadratic' ? 'Bestimme die Scheitelpunktform.' : 'Bestimme die Funktionsgleichung.';
     }
 
-    function FunctionGraph({ item, small = false }) {
-      const width = 720, height = 520;
-      const g = graphLayout(item, width, height), { sx, sy } = g;
+    function FunctionGraph({ item, small = false, params }) {
+      const width = item.graphType === 'linear' ? 520 : 720, height = 520;
+      const g = graphLayout(item, width, height, params), { sx, sy } = g;
       const text = (x, y, label, anchor = 'middle', size = 19) => <text x={x} y={y} textAnchor={anchor} fontSize={size} fontWeight="600" fill="#0f172a">{label}</text>;
-      return <svg width={width} height={height} style={{width:small ? '100%' : undefined,height:'auto'}} viewBox="0 0 720 520" role="img" aria-label="Funktionsgraph mit beschrifteten Achsen und Skalen" className="inline-block max-w-full rounded-xl bg-white/95 text-slate-800 shadow-sm">
-        {!small && text(360, 28, graphInstruction(item), 'middle', 22)}
-        {text(360, 57, `Markierte Punkte: ${g.points.map(([x,y]) => `(${x}|${y})`).join('; ')}`, 'middle', small ? 22 : 19)}
+      return <svg width={width} height={height} style={{width:small ? '100%' : undefined,height:'auto'}} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Funktionsgraph mit beschrifteten Achsen und Skalen" className="inline-block max-w-full rounded-xl bg-white/95 text-slate-800 shadow-sm">
+        {!small && text(width/2, 28, graphInstruction(item), 'middle', 22)}
+        {text(width/2, 57, `Markierte Punkte: ${g.points.map(([x,y]) => `(${x}|${y})`).join('; ')}`, 'middle', small ? 22 : 19)}
         {(item.subtype === 'zeros' ? integerTicks(g.bounds.xMin,g.bounds.xMax) : g.xTicks).map(v => <line key={`gx${v}`} x1={sx(v)} x2={sx(v)} y1={g.top} y2={g.bottom} stroke="#e2e8f0" strokeWidth="1" />)}
         {g.yTicks.map(v => <line key={`gy${v}`} x1={g.left} x2={g.right} y1={sy(v)} y2={sy(v)} stroke="#e2e8f0" strokeWidth="1" />)}
         <line x1={g.left} x2={g.right} y1={sy(0)} y2={sy(0)} stroke="#334155" strokeWidth="2" />
         <line x1={sx(0)} x2={sx(0)} y1={g.top} y2={g.bottom} stroke="#334155" strokeWidth="2" />
-        {g.xTicks.map(v => <React.Fragment key={`tx${v}`}><line x1={sx(v)} x2={sx(v)} y1={sy(0)-4} y2={sy(0)+4} stroke="#334155" />{g.xLabels.includes(v) && text(sx(v), g.bottom + 26, v, 'middle', small ? 23 : 19)}</React.Fragment>)}
-        {g.yTicks.map(v => <React.Fragment key={`ty${v}`}><line x1={sx(0)-4} x2={sx(0)+4} y1={sy(v)} y2={sy(v)} stroke="#334155" />{g.yLabels.includes(v) && text(g.left-10, sy(v)+6, v, 'end', item.graphType === 'linear' ? 19 : small ? 23 : 19)}</React.Fragment>)}
+        {g.xTicks.map(v => <React.Fragment key={`tx${v}`}><line x1={sx(v)} x2={sx(v)} y1={sy(0)-4} y2={sy(0)+4} stroke="#334155" />{g.xLabels.includes(v) && text(sx(v), g.bottom + 26, v, 'middle', item.graphType === 'linear' ? 14 : small ? 23 : 19)}</React.Fragment>)}
+        {g.yTicks.map(v => <React.Fragment key={`ty${v}`}><line x1={sx(0)-4} x2={sx(0)+4} y1={sy(v)} y2={sy(v)} stroke="#334155" />{g.yLabels.includes(v) && text(g.left-10, sy(v)+6, v, 'end', item.graphType === 'linear' ? 14 : small ? 23 : 19)}</React.Fragment>)}
         {text(g.right+14, sy(0)+6, 'x')}{text(sx(0)+13, g.top-10, 'y')}
         {g.segments.map((segment,i) => <polyline key={i} points={segment.map(p=>p.join(',')).join(' ')} fill="none" stroke="#4f46e5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />)}
         {g.points.map(([x,y],i) => <circle key={i} cx={sx(x)} cy={sy(y)} r="4" fill="#4f46e5" />)}
-        {text(360, 492, graphScaleLabel(item, g), 'middle', small ? 21 : 18)}
+        {text(width/2, 492, graphScaleLabel(item, g), 'middle', small ? 21 : 18)}
       </svg>;
     }
 
@@ -3684,8 +3698,8 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
       return <span className="inline-flex max-w-full flex-col items-center gap-3 whitespace-normal" style={{fontSize:'0.42em',lineHeight:1.25}}>{lines.map((line,i)=><span key={i} style={{maxWidth:'30em'}}>{line}</span>)}</span>;
     }
 
-    function FunctionTask({ item }) {
-      if(item.kind === 'graph') return <FunctionGraph item={item} />;
+    function FunctionTask({ item, params }) {
+      if(item.kind === 'graph') return <FunctionGraph item={item} params={params} />;
       const instruction = item.graphType === 'quadratic' ? (item.subtype === 'formulaToGraph' ? 'Ordne den passenden Graphen zu.' : 'Bestimme den Scheitelpunkt.') : item.subtype === 'formulaToGraph' ? 'Ordne den passenden Graphen zu.' : item.subtype === 'yValue' ? 'Berechne den Funktionswert y.' : item.subtype === 'xValue' ? 'Bestimme die Stelle x.' : 'Bestimme die Nullstelle.';
       return <span className="inline-flex flex-col items-center gap-3"><span style={{fontSize:'0.35em'}}>{instruction}</span><span className="whitespace-pre-line">{item.label}</span></span>;
     }
@@ -3715,14 +3729,14 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
       );
     }
 
-    function renderCardEntry(entry, mode, className = '') {
+    function renderCardEntry(entry, mode, className = '', params) {
       if (entry.kind === 'fraction') return <Fraction num={entry.num} den={entry.den} mixed={entry.mixed} className={className} />;
-      if (entry.kind === 'graph') return <FunctionGraph item={entry} small />;
+      if (entry.kind === 'graph') return <FunctionGraph item={entry} small params={params} />;
       if (entry.kind === 'geometryFigure') return <GeometryFigure item={entry} small />;
       return <span className={className}>{entry.label}</span>;
     }
 
-    function BingoCard({ card, size, mode, code }) {
+    function BingoCard({ card, size, mode, code, params }) {
       return (
         <div className={`rounded-3xl border border-slate-200 bg-white p-4 shadow-sm ${size > 4 || card.entries.some(entry => ['graph','geometryFigure'].includes(entry.kind)) ? 'md:col-span-2 xl:col-span-3' : ''}`}>
           <div className="mb-3 flex items-start justify-between gap-3">
@@ -3736,7 +3750,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
           <div className="bingo-preview" style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}>
             {card.entries.map((entry, idx) => (
               <div key={`${card.id}-${idx}-${entry.targetKey}`} className="bingo-cell rounded-2xl bg-white p-2 flex items-center justify-center text-center border border-slate-200">
-                {renderCardEntry(entry, mode, 'text-[clamp(0.64rem,1.15vw,0.92rem)] leading-tight font-semibold text-slate-700 break-words')}
+                {renderCardEntry(entry, mode, 'text-[clamp(0.64rem,1.15vw,0.92rem)] leading-tight font-semibold text-slate-700 break-words', params)}
               </div>
             ))}
           </div>
@@ -4479,8 +4493,12 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
       }
 
       function drawFunctionGraphOnPdf(doc, entry, x, y, w, h) {
-        const g = graphLayout(entry, 720, 520);
-        const sx = v => x + v / 720 * w, sy = v => y + v / 520 * h;
+        const linear = entry.graphType === 'linear', plotWidth = linear ? 520 : 720;
+        const g = graphLayout(entry, plotWidth, 520, activeParams);
+        // Preserve square units when fitting the plot into rectangular PDF cells.
+        const scale = Math.min(w / plotWidth, h / 520);
+        const sx = v => linear ? x + (w - plotWidth * scale) / 2 + v * scale : x + v / 720 * w;
+        const sy = v => linear ? y + (h - 520 * scale) / 2 + v * scale : y + v / 520 * h;
         doc.setLineWidth(0.08);doc.setDrawColor(226,232,240);
         (entry.subtype === 'zeros' ? integerTicks(g.bounds.xMin,g.bounds.xMax) : g.xTicks).forEach(v => doc.line(sx(g.sx(v)),sy(g.top),sx(g.sx(v)),sy(g.bottom)));
         g.yTicks.forEach(v => doc.line(sx(g.left),sy(g.sy(v)),sx(g.right),sy(g.sy(v))));
@@ -4488,7 +4506,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
         doc.line(sx(g.left),sy(g.sy(0)),sx(g.right),sy(g.sy(0)));
         doc.line(sx(g.sx(0)),sy(g.top),sx(g.sx(0)),sy(g.bottom));
         doc.setFont('helvetica','bold');doc.setTextColor(15,23,42);
-        doc.setFontSize(Math.min(7, w / 11));
+        doc.setFontSize(linear ? 14 * scale * 72 / 25.4 : Math.min(7, w / 11));
         if (entry.graphType === 'linear') {
           g.xTicks.forEach(v => doc.line(sx(g.sx(v)),sy(g.sy(0)-4),sx(g.sx(v)),sy(g.sy(0)+4)));
           g.yTicks.forEach(v => doc.line(sx(g.sx(0)-4),sy(g.sy(v)),sx(g.sx(0)+4),sy(g.sy(v))));
@@ -4497,8 +4515,8 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
         g.yLabels.forEach(v => doc.text(String(v),sx(g.left-10),sy(g.sy(v)+6),{align:'right'}));
         doc.text('x',sx(g.right+14),sy(g.sy(0)+6),{align:'center'});doc.text('y',sx(g.sx(0)+13),sy(g.top-10),{align:'center'});
         doc.setFontSize(Math.min(6.5,w/12));
-        doc.text(`Punkte: ${g.points.map(([px,py])=>`(${px}|${py})`).join('; ')}`,sx(360),sy(57),{align:'center'});
-        doc.text(entry.graphType === 'linear' ? graphScaleLabel(entry, g) : `Teilung x: ${g.xStep}; y: ${g.yStep}`,sx(360),sy(492),{align:'center'});
+        doc.text(`Punkte: ${g.points.map(([px,py])=>`(${px}|${py})`).join('; ')}`,sx(plotWidth/2),sy(57),{align:'center'});
+        doc.text(entry.graphType === 'linear' ? graphScaleLabel(entry, g) : `Teilung x: ${g.xStep}; y: ${g.yStep}`,sx(plotWidth/2),sy(492),{align:'center'});
         doc.setDrawColor(79,70,229);doc.setFillColor(79,70,229);doc.setLineWidth(0.23);
         for(const segment of g.segments) for(let i=1;i<segment.length;i++) doc.line(sx(segment[i-1][0]),sy(segment[i-1][1]),sx(segment[i][0]),sy(segment[i][1]));
         g.points.forEach(([px,py])=>doc.circle(sx(g.sx(px)),sy(g.sy(py)),0.4,'F'));
@@ -4581,6 +4599,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
         const pdfMode = activeCardSet?.mode || gameMode;
         const pdfModeDef = GAME_MODES[pdfMode];
         const graphCard = card.entries.some(entry => entry.kind === 'graph' || entry.kind === 'geometryFigure');
+        const linearGraphCard = card.entries.some(entry => entry.kind === 'graph' && entry.graphType === 'linear');
         const compactCard = !graphCard && pdfParams.grid <= 3;
         const pageWidth = 210;
         const pageHeight = 297;
@@ -4588,7 +4607,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
         const gapX = compactCard ? 5 : 0;
         const gapY = graphCard ? 4 : compactCard ? 5 : 8;
         const pageMarginY = graphCard ? 6 : compactCard ? 6 : 9;
-        const slotHeight = compactCard ? (pageHeight - pageMarginY * 2 - gapY) / 2 : (pageHeight - pageMarginY * 2 - gapY) / 2;
+        const slotHeight = linearGraphCard ? pageHeight - pageMarginY * 2 : (pageHeight - pageMarginY * 2 - gapY) / 2;
         const cardW = compactCard ? (pageWidth - marginX * 2 - gapX) / 2 : pageWidth - marginX * 2;
         const slotCol = compactCard ? Math.floor(pageSlot / 2) : 0;
         const slotRow = compactCard ? pageSlot % 2 : pageSlot;
@@ -4694,7 +4713,8 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
           drawCoverOnPdf(doc);
           const pdfParams = activeCardSet?.params || params;
           const firstGraphCard = cards[0]?.entries.some(entry => entry.kind === 'graph' || entry.kind === 'geometryFigure');
-          const slotsPerPage = !firstGraphCard && pdfParams.grid <= 3 ? 4 : 2;
+          const firstLinearGraphCard = cards[0]?.entries.some(entry => entry.kind === 'graph' && entry.graphType === 'linear');
+          const slotsPerPage = firstLinearGraphCard ? 1 : !firstGraphCard && pdfParams.grid <= 3 ? 4 : 2;
           cards.forEach((card, index) => {
             if (index % slotsPerPage === 0) doc.addPage();
             drawCardOnPdf(doc, card, index % slotsPerPage);
@@ -4863,7 +4883,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
             </label>
           </div>
           {['graphToFormula', 'formulaToGraph'].includes(linearFunctionTaskType) && (
-            <p className="mt-4 text-sm text-slate-600">Auf beiden Achsen entspricht jeder Gitterschritt 1. Der sichtbare Bereich passt sich der Geraden an. Bei großen Wertebereichen werden für bessere Lesbarkeit weniger Zahlen beschriftet; das Gitter bleibt in 1er-Schritten.</p>
+            <p className="mt-4 text-sm text-slate-600">Auf beiden Achsen entspricht jeder Gitterschritt 1 und ist gleich lang: Die Kästchen sind quadratisch. Alle Graphen eines Satzes verwenden denselben Maßstab und Achsenbereich. Bei großen Wertebereichen werden für bessere Lesbarkeit weniger Zahlen beschriftet; das Gitter bleibt in 1er-Schritten.</p>
           )}
           {linearFunctionTaskType === 'formulaToGraph' && Number(gridSizeInput) > 2 && (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
@@ -5110,7 +5130,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
                 {activeCardSet && <section className="s6-panel mt-5" aria-label="Gespeicherte Kartenvorschau">
                   <div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-lg font-bold">2. Vorschau prüfen und PDF speichern</h2><p className="mt-1 text-sm">Geladener Satz · Abgleich {activeCardSet.comparisonCode}. PDF beginnt mit einem Deckblatt.</p></div><div className="flex flex-wrap gap-2"><button onClick={exportPdf} className="s6-primary">PDF exportieren</button><button onClick={playWithCurrentSet} className="s6-secondary">Mit diesem Satz spielen</button></div></div>
                   {!activeCardSet.paperCode && <div className="mt-4 rounded-xl bg-amber-50 p-3"><p className="text-sm">Freier Satz: Zum späteren Laden zusätzlich die Satzdatei speichern und digital mitgeben.</p><button onClick={saveSetFile} className="s6-secondary mt-2">Satzdatei speichern</button></div>}
-                  <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">{cards.map(card => <BingoCard key={card.id} card={card} size={activeParams.grid} mode={activeMode} code={`Abgleich (kein Ladecode): ${activeCardSet.comparisonCode}`} />)}</div>
+                  <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">{cards.map(card => <BingoCard key={card.id} card={card} size={activeParams.grid} mode={activeMode} params={activeParams} code={`Abgleich (kein Ladecode): ${activeCardSet.comparisonCode}`} />)}</div>
                 </section>}
                 {renderSetCodePanel()}
                 <details className="s6-disclosure mt-4"><summary>Pool-Info und Druckhinweise</summary><div className="grid gap-4 p-4 md:grid-cols-2">                      <div className="rounded-3xl bg-white p-5 shadow-sm border border-slate-200">
@@ -5126,7 +5146,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
                       </div>
                       <div className="rounded-3xl bg-white p-5 shadow-sm border border-slate-200">
                         <h2 className="text-xl font-bold text-slate-900">Druckhinweise</h2>
-                        <div className="mt-4 space-y-3 text-sm leading-relaxed text-slate-600"><p>Jeder PDF-Satz beginnt mit einem Deckblatt: Anleitung und Spielcode beziehungsweise Satzdatei. Freie Sätze: Satzdatei zusätzlich speichern und digital mitgeben. Auf den Spielkarten stehen nur Nummer und Kartenabgleich; dieser ist kein Ladecode. Kleine Raster ohne Graphen: vier Karten pro Seite; sonst zwei.</p></div>
+                        <div className="mt-4 space-y-3 text-sm leading-relaxed text-slate-600"><p>Jeder PDF-Satz beginnt mit einem Deckblatt: Anleitung und Spielcode beziehungsweise Satzdatei. Freie Sätze: Satzdatei zusätzlich speichern und digital mitgeben. Auf den Spielkarten stehen nur Nummer und Kartenabgleich; dieser ist kein Ladecode. Lineare Graphenkarten: eine Karte pro Seite für gut ablesbare quadratische Gitter. Kleine Raster ohne Graphen: vier Karten pro Seite; sonst zwei.</p></div>
                       </div>
 </div></details>
               </>}
@@ -5162,7 +5182,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
                             ) : (
                               <div key={rollKey} className="animate-result-flip w-full">
                                 <div className="text-xs uppercase tracking-[0.25em] text-indigo-100">{activeModeDef.taskName}</div>
-                                <div className={`mt-4 text-[clamp(2.1rem,7vw,5rem)] font-black leading-tight ${activeModeDef.usesDice ? 'break-words' : 'task-expression task-expression-scroll'}`}>{activeModeDef.renderTask(currentDraw)}</div>
+                                <div className={`mt-4 text-[clamp(2.1rem,7vw,5rem)] font-black leading-tight ${activeModeDef.usesDice ? 'break-words' : 'task-expression task-expression-scroll'}`}>{activeModeDef.renderTask(currentDraw, activeParams)}</div>
                                 {showLastSolution && previousDraw && <div className="mt-4 inline-flex max-w-full rounded-2xl bg-white/15 px-4 py-2 text-lg font-black text-white shadow-sm">Lösung vorherige Aufgabe: {previousSolution}</div>}
                                 {showLastSolution && previousDraw && activeMode === 'smartArithmetic' && <div data-testid="previous-strategy" data-task-id={previousDraw.id} className="mx-auto mt-3 max-w-3xl text-base font-semibold leading-relaxed">Ein möglicher Rechenweg: {previousDraw.strategy}</div>}
                               </div>
@@ -5185,7 +5205,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
                             {winnerCheck.card.entries.map((entry, index) => {
                               const inPattern = winnerCheck.patterns.some(pattern => pattern.indices.includes(index));
                               return <div key={index} data-marked={winnerCheck.marked[index]} data-pattern={inPattern} className={`bingo-cell rounded-xl border-2 p-2 text-center ${inPattern ? 'border-emerald-600 bg-emerald-100' : winnerCheck.marked[index] ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 bg-white'}`}>
-                                {renderCardEntry(entry, activeMode, 'font-semibold break-words')}
+                                {renderCardEntry(entry, activeMode, 'font-semibold break-words', activeParams)}
                                 <span className="block text-xs font-bold">{inPattern ? '✓ Muster' : winnerCheck.marked[index] ? '✓ gezogen' : 'offen'}</span>
                               </div>;
                             })}
@@ -5250,7 +5270,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
                         <div className="mt-4 space-y-2 max-h-[18rem] overflow-auto pr-1">
                           {history.length === 0 ? <div className="rounded-2xl bg-slate-50 p-4 text-slate-500">Noch keine Ziehungen.</div> : history.map((entry, idx) => (
                             <div key={`${entry.id}-${idx}`} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 gap-3">
-                              <div className="font-semibold text-slate-700 break-words">{activeModeDef.renderTask(entry)} {showLastSolution && idx > 0 && <span className="ml-2 text-xs font-black text-emerald-700">→ {getSolutionLabel(entry, activeMode)}</span>}</div>
+                              <div className="font-semibold text-slate-700 break-words">{activeModeDef.renderTask(entry, activeParams)} {showLastSolution && idx > 0 && <span className="ml-2 text-xs font-black text-emerald-700">→ {getSolutionLabel(entry, activeMode)}</span>}</div>
                               <div className="text-xs text-slate-400 whitespace-nowrap">{entry.timestamp}</div>
                             </div>
                           ))}
@@ -5290,7 +5310,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
                 )}
                 <div className="fs-task">
                   <div className="text-white/70 text-sm md:text-base font-bold uppercase tracking-[0.22em]">{currentDraw ? activeModeDef.taskName : roundStarted ? 'Bereit?' : 'Runde nicht gestartet'}</div>
-                  <div key={`fs-task-${rollKey}`} className={`fs-task-text mt-4 font-black animate-result-flip ${activeModeDef.usesDice ? '' : 'task-expression'}`}>{currentDraw ? activeModeDef.renderTask(currentDraw) : roundStarted ? 'Erste Ziehung' : 'Runde starten'}</div>
+                  <div key={`fs-task-${rollKey}`} className={`fs-task-text mt-4 font-black animate-result-flip ${activeModeDef.usesDice ? '' : 'task-expression'}`}>{currentDraw ? activeModeDef.renderTask(currentDraw, activeParams) : roundStarted ? 'Erste Ziehung' : 'Runde starten'}</div>
                   {showLastSolution && previousDraw && <div className="mt-4 inline-flex max-w-full rounded-2xl bg-white/15 px-5 py-3 text-[clamp(1.1rem,3vw,2rem)] font-black text-white">Lösung vorherige Aufgabe: {previousSolution}</div>}
                   {showLastSolution && previousDraw && activeMode === 'smartArithmetic' && <div data-testid="previous-strategy" data-task-id={previousDraw.id} className="mx-auto mt-3 max-w-5xl text-[clamp(0.9rem,1.6vw,1.6rem)] font-semibold leading-relaxed">Ein möglicher Rechenweg: {previousDraw.strategy}</div>}
                 </div>
