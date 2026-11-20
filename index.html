@@ -1915,6 +1915,10 @@ video {
   --tw-text-opacity: 1;
   color: rgb(15 23 42 / var(--tw-text-opacity, 1));
 }
+.text-teal-900 {
+  --tw-text-opacity: 1;
+  color: rgb(19 78 74 / var(--tw-text-opacity, 1));
+}
 .text-white {
   --tw-text-opacity: 1;
   color: rgb(255 255 255 / var(--tw-text-opacity, 1));
@@ -2338,7 +2342,7 @@ video {
   <noscript>Mathe-Bingo benötigt eingeschaltetes JavaScript. Die fertige Datei funktioniert ohne Internet.</noscript>
   <div id="root"></div>
 
-  <script id="bingo-build-info" type="application/json">{"format":"MATHE-BINGO-STANDALONE","version":1,"authoringSHA256":"7b77421ed6b04d8613f72fedd613343d20f85297089012dd2c381e5775bd6b2d","jsxSHA256":"fce2e027e8c81347b4e0e0ff8755157a09d0a818f16302030d2507bddd140934","compiledSHA256":"7187dd875cf00957fa1cb11f1d278b8bf24fcabf28e69a99a5aa74f6e6ce8e76","cssSHA256":"18e05bc1d61e5872bcfd4982e711e844103a713cbe0eaf3019b22335dfec868f","lockSHA256":"c92d3ef3dcaa9da49c1562e22bc2141322b8e9f796fefaade129106825be9962","buildTools":{"@babel/core":"7.28.5","@babel/preset-react":"7.28.5","jspdf":"2.5.1","postcss":"8.5.6","react":"18.3.1","react-dom":"18.3.1","tailwindcss":"3.4.17"},"runtime":[{"name":"react","version":"18.3.1","sha256":"d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd"},{"name":"react-dom","version":"18.3.1","sha256":"35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d"},{"name":"jspdf","version":"2.5.1","sha256":"98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"}]}</script>
+  <script id="bingo-build-info" type="application/json">{"format":"MATHE-BINGO-STANDALONE","version":1,"authoringSHA256":"5636e26ca29c3072d759410d4c93e81650f68db0885a4aff1e8085082f805e2e","jsxSHA256":"f3f521cb5b51ed4d0d1870bb295a38c98010572cc99b9bd0b2f33447bc8d01dd","compiledSHA256":"15c76dd3981cde9afd6ef2e97b3dc441fae387e6078d48227582f18ab2705c9f","cssSHA256":"ab18d0f503e86836db065ef6bdb3c32a1cac44b355c09e9d9c64fb89f61ac7c0","lockSHA256":"c92d3ef3dcaa9da49c1562e22bc2141322b8e9f796fefaade129106825be9962","buildTools":{"@babel/core":"7.28.5","@babel/preset-react":"7.28.5","jspdf":"2.5.1","postcss":"8.5.6","react":"18.3.1","react-dom":"18.3.1","tailwindcss":"3.4.17"},"runtime":[{"name":"react","version":"18.3.1","sha256":"d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd"},{"name":"react-dom","version":"18.3.1","sha256":"35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d"},{"name":"jspdf","version":"2.5.1","sha256":"98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"}]}</script>
   <script id="bingo-app">
 const {
   useEffect,
@@ -8526,7 +8530,7 @@ const EZ_PRESETS = [{
   }
 }, {
   id: 'smart-06',
-  label: 'Schlau rechnen: Zusammenfassen bis 1000, 4×4',
+  label: 'Schlau rechnen: Nur Addition, 3–4 Summanden bis 1000, 4×4',
   mode: 'smartArithmetic',
   cardSeed: 'EZ-SCHLAU-06',
   params: {
@@ -10669,13 +10673,15 @@ function App() {
     value: "mixed"
   }, "Strategien gemischt"), /*#__PURE__*/React.createElement("option", {
     value: "combine"
-  }, "G\xFCnstig zusammenfassen"), /*#__PURE__*/React.createElement("option", {
+  }, "Nur Addition: g\xFCnstig vertauschen und zusammenfassen"), /*#__PURE__*/React.createElement("option", {
     value: "addNear"
   }, "Hilfsaufgabe Addition"), /*#__PURE__*/React.createElement("option", {
     value: "subtractNear"
   }, "Hilfsaufgabe Subtraktion"), /*#__PURE__*/React.createElement("option", {
     value: "bundle"
-  }, "Subtraktionsschritte b\xFCndeln")))), /*#__PURE__*/React.createElement("p", {
+  }, "Subtraktionsschritte b\xFCndeln")))), smartFamily === 'combine' && /*#__PURE__*/React.createElement("p", {
+    className: "mt-3 text-sm font-semibold text-teal-900"
+  }, "Nur Addition mit ", smartLevel === 'standard' ? 'drei oder vier' : 'drei', " Summanden. Schwerpunkt: Summanden geschickt vertauschen (Kommutativgesetz) und zusammenfassen."), /*#__PURE__*/React.createElement("p", {
     className: "mt-3 text-sm text-slate-600"
   }, "Rechne geschickt im Kopf. Ohne Taschenrechner. G\xFCnstige Zahlbeziehungen suchen und in der Besprechung erkl\xE4ren; andere richtige Wege sind m\xF6glich. Einfach: 36 Ergebniswerte, Standard: 48. Raster 2\xD72 bis 5\xD75. Richtiges Markieren allein zeigt noch keine begr\xFCndete Strategiewahl."));
   const FractionSettings = () => /*#__PURE__*/React.createElement("div", {
