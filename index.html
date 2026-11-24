@@ -2342,7 +2342,7 @@ video {
   <noscript>Mathe-Bingo benötigt eingeschaltetes JavaScript. Die fertige Datei funktioniert ohne Internet.</noscript>
   <div id="root"></div>
 
-  <script id="bingo-build-info" type="application/json">{"format":"MATHE-BINGO-STANDALONE","version":1,"authoringSHA256":"5636e26ca29c3072d759410d4c93e81650f68db0885a4aff1e8085082f805e2e","jsxSHA256":"f3f521cb5b51ed4d0d1870bb295a38c98010572cc99b9bd0b2f33447bc8d01dd","compiledSHA256":"15c76dd3981cde9afd6ef2e97b3dc441fae387e6078d48227582f18ab2705c9f","cssSHA256":"ab18d0f503e86836db065ef6bdb3c32a1cac44b355c09e9d9c64fb89f61ac7c0","lockSHA256":"c92d3ef3dcaa9da49c1562e22bc2141322b8e9f796fefaade129106825be9962","buildTools":{"@babel/core":"7.28.5","@babel/preset-react":"7.28.5","jspdf":"2.5.1","postcss":"8.5.6","react":"18.3.1","react-dom":"18.3.1","tailwindcss":"3.4.17"},"runtime":[{"name":"react","version":"18.3.1","sha256":"d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd"},{"name":"react-dom","version":"18.3.1","sha256":"35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d"},{"name":"jspdf","version":"2.5.1","sha256":"98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"}]}</script>
+  <script id="bingo-build-info" type="application/json">{"format":"MATHE-BINGO-STANDALONE","version":1,"authoringSHA256":"18c39ef6a6866be8a8c4ceff8617e69e22ccc9b972344461af61ae55b8fa5dbd","jsxSHA256":"ecf8c0ca979e215f6780d02962649e2c982ae90984c23ca6dfb055b55908daa7","compiledSHA256":"9b7d0fcf786584124efe93acfe12103c92607d8a84696b12aea513029b2c4fcd","cssSHA256":"ab18d0f503e86836db065ef6bdb3c32a1cac44b355c09e9d9c64fb89f61ac7c0","lockSHA256":"c92d3ef3dcaa9da49c1562e22bc2141322b8e9f796fefaade129106825be9962","buildTools":{"@babel/core":"7.28.5","@babel/preset-react":"7.28.5","jspdf":"2.5.1","postcss":"8.5.6","react":"18.3.1","react-dom":"18.3.1","tailwindcss":"3.4.17"},"runtime":[{"name":"react","version":"18.3.1","sha256":"d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd"},{"name":"react-dom","version":"18.3.1","sha256":"35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d"},{"name":"jspdf","version":"2.5.1","sha256":"98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"}]}</script>
   <script id="bingo-app">
 const {
   useEffect,
@@ -4417,6 +4417,93 @@ function buildPythagorasCards(params) {
 // candidate construction and mixed-family assignment are part of the contract.
 const SMART_FAMILIES = ['combine', 'addNear', 'subtractNear', 'bundle'];
 const SMART_POOL_CACHE = new Map();
+
+// Separate families keep the existing G4 pools, cards and paper codes stable.
+const SMART_LAW_FAMILIES = ['commute', 'associate', 'brackets'];
+function smartQueueFamilies(family) {
+  return family === 'lawsMixed' ? SMART_LAW_FAMILIES : family === 'mixed' ? SMART_FAMILIES : [family];
+}
+function buildSmartLawPool(level, family) {
+  const unit = level === 'standard' ? 100 : 10,
+    limit = unit * 10;
+  const targets = level === 'standard' ? [127, 151, 179, 210, 231, 257, 289, 300, 327, 349, 370, 405, 431, 459, 487, 510, 520, 549, 571, 599, 627, 651, 679, 690, 713, 739, 761, 789, 810, 835, 859, 887, 910, 939, 971, 999] : [21, 23, 25, 27, 30, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 52, 54, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 85, 89, 93, 97, 99];
+  const tasks = [],
+    families = smartQueueFamilies(family);
+  for (const result of targets) for (const subtype of families) {
+    const candidates = [],
+      seen = new Set();
+    const add = (label, variant, steps) => {
+      if (seen.has(label)) return;
+      seen.add(label);
+      candidates.push({
+        id: `smart:${subtype}:${label}`,
+        label,
+        subtype,
+        variant,
+        targetKey: String(result),
+        targetLabel: String(result),
+        strategy: [label, ...steps, String(result)].join(' = ')
+      });
+    };
+    // Retain the requested examples in the available task pools.
+    if (level === 'easy') {
+      if (subtype === 'commute' && result === 69) add('55 + 9 + 5', 'commute3', ['(55 + 5) + 9', '60 + 9']);
+      if (subtype === 'associate' && result === 51) add('21 + (18 + 12)', 'associateRight', ['21 + 30']);
+      if (subtype === 'associate' && result === 52) add('12 + (19 + 21)', 'associateRight', ['12 + 40']);
+      if (subtype === 'brackets' && result === 30) add('31 − (10 − 9)', 'subtractDifference', ['31 − 1']);
+    } else {
+      if (subtype === 'commute' && result === 690) add('550 + 90 + 50', 'commute3', ['(550 + 50) + 90', '600 + 90']);
+      if (subtype === 'associate' && result === 510) add('210 + (180 + 120)', 'associateRight', ['210 + 300']);
+      if (subtype === 'associate' && result === 520) add('120 + (190 + 210)', 'associateRight', ['120 + 400']);
+      if (subtype === 'brackets' && result === 300) add('301 − (100 − 99)', 'subtractDifference', ['301 − 1']);
+    }
+    for (let q = unit; q <= 9 * unit; q += unit) {
+      const outer = result - q;
+      if (outer > 0) for (const a of smartComplements(q, unit)) {
+        const b = q - a;
+        if (subtype === 'commute' && (a + outer) % unit !== 0 && (outer + b) % unit !== 0) {
+          add(`${a} + ${outer} + ${b}`, 'commute3', [`(${a} + ${b}) + ${outer}`, `${q} + ${outer}`]);
+        }
+        if (subtype === 'associate') {
+          add(`${outer} + (${a} + ${b})`, 'associateRight', [`${outer} + ${q}`]);
+          if ((outer + a) % unit !== 0) add(`(${outer} + ${a}) + ${b}`, 'associateLeft', [`${outer} + (${a} + ${b})`, `${outer} + ${q}`]);
+        }
+      }
+      if (subtype === 'brackets') {
+        // Subtraction is deliberately never treated as associative.
+        for (let d = 1; d < unit && result + d <= limit; d++) {
+          if (q > d) add(`${result + d} − (${q} − ${q - d})`, 'subtractDifference', [`${result + d} − ${d}`]);
+        }
+        if (result + q <= limit) for (const a of smartComplements(q, unit)) {
+          add(`${result + q} − (${a} + ${q - a})`, 'subtractSum', [`${result + q} − ${q}`]);
+        }
+      }
+    }
+    // Round-robin structural variants instead of exhausting one pattern.
+    const groups = new Map();
+    for (const task of candidates) {
+      if (!groups.has(task.variant)) groups.set(task.variant, []);
+      groups.get(task.variant).push(task);
+    }
+    const selected = [];
+    for (let i = 0; selected.length < 8; i++) {
+      let added = false;
+      for (const group of groups.values()) if (group[i] && selected.length < 8) {
+        selected.push(group[i]);
+        added = true;
+      }
+      if (!added) break;
+    }
+    if (!selected.length) throw new Error('Für diese Zahl fehlt eine Aufgabe zu Rechengesetzen und Klammern.');
+    tasks.push(...selected);
+  }
+  const assignment = new Map(targets.map((n, i) => [n, families[i % families.length]]));
+  return {
+    tasks,
+    targets,
+    assignment
+  };
+}
 function smartResultRange(level, family) {
   const ranges = level === 'standard' ? {
     combine: [101, 1000],
@@ -4563,9 +4650,14 @@ function smartFamilyAssignment(targets, level) {
 function buildSmartPool(params) {
   const level = params.smartLevel || 'easy',
     family = params.smartFamily || 'mixed';
-  if (!['easy', 'standard'].includes(level) || !['mixed', ...SMART_FAMILIES].includes(family)) throw new Error('Unbekannte Stufe oder Strategiefamilie für Schlau rechnen.');
+  if (!['easy', 'standard'].includes(level) || !['mixed', ...SMART_FAMILIES, ...SMART_LAW_FAMILIES, 'lawsMixed'].includes(family)) throw new Error('Unbekannte Stufe oder Strategiefamilie für Schlau rechnen.');
   const key = `${level}:${family}`;
   if (SMART_POOL_CACHE.has(key)) return SMART_POOL_CACHE.get(key);
+  if (SMART_LAW_FAMILIES.includes(family) || family === 'lawsMixed') {
+    const pool = buildSmartLawPool(level, family);
+    SMART_POOL_CACHE.set(key, pool);
+    return pool;
+  }
   const targets = smartTargets(level, family),
     tasks = [];
   for (const result of targets) for (const f of family === 'mixed' ? SMART_FAMILIES : [family]) {
@@ -4601,7 +4693,7 @@ function buildSmartQueue(params, roundSeed) {
     assignment
   } = buildSmartPool(params);
   const rng = createRng(`smartArithmetic|round|${roundSeed}|${JSON.stringify(params)}`);
-  const families = params.smartFamily === 'mixed' ? SMART_FAMILIES : [params.smartFamily];
+  const families = smartQueueFamilies(params.smartFamily || 'mixed');
   const groups = new Map(families.map(f => [f, rng.shuffle(targets.filter(n => assignment.get(n) === f))]));
   const queue = [];
   while (queue.length < targets.length) for (const family of rng.shuffle(families)) {
@@ -4965,7 +5057,7 @@ const MODE_CODE = {
 const CODE_MODE = Object.fromEntries(Object.entries(MODE_CODE).map(([key, value]) => [value, key]));
 const CODE_VALUE_OPTIONS = {
   smartLevel: ['easy', 'standard'],
-  smartFamily: ['mixed', 'combine', 'addNear', 'subtractNear', 'bundle'],
+  smartFamily: ['mixed', 'combine', 'addNear', 'subtractNear', 'bundle', 'commute', 'associate', 'brackets', 'lawsMixed'],
   scaleMode: ['k1only', 'random', 'product'],
   fractionTaskType: ['reduce', 'expand', 'mixed'],
   fractionShape: ['any', 'proper', 'improper'],
@@ -5807,11 +5899,21 @@ function projectParams(mode, params) {
 function codeFieldBits(field) {
   return field.bool ? 1 : Math.ceil(Math.log2(field.options ? field.options.length : field.max - field.min + 1));
 }
+
+// G4 used three bits for smartFamily. Preserve every old free-set code;
+// only lawsMixed needs the longer (four-character) parameter payload.
+function codeSchemaForPayload(mode, extended = false) {
+  const schema = CODE_SCHEMA[mode];
+  return mode === 'smartArithmetic' && !extended ? schema.map(field => field.key === 'smartFamily' ? {
+    ...field,
+    options: field.options.slice(0, 8)
+  } : field) : schema;
+}
 function packCodeParams(mode, params) {
   const projected = projectParams(mode, params);
   let packed = 0n,
     bits = 0;
-  for (const field of CODE_SCHEMA[mode]) {
+  for (const field of codeSchemaForPayload(mode, params.smartFamily === 'lawsMixed')) {
     const value = projected[field.key];
     const raw = field.bool ? value ? 1 : 0 : field.options ? field.options.indexOf(value) : value - field.min;
     if (!Number.isSafeInteger(raw) || raw < 0 || field.options && raw >= field.options.length || !field.options && !field.bool && value > field.max) throw new Error(`Ungültige Einstellung: ${field.key}`);
@@ -5827,7 +5929,7 @@ function packCodeParams(mode, params) {
   return result.padStart(Math.ceil(bits / 5), CODE_ALPHABET[0]);
 }
 function unpackCodeParams(mode, payload) {
-  const schema = CODE_SCHEMA[mode];
+  const schema = codeSchemaForPayload(mode, mode === 'smartArithmetic' && payload.length === 4);
   if (!schema) throw new Error('Unbekannter Modus im Satzcode.');
   const length = Math.ceil(schema.reduce((sum, field) => sum + codeFieldBits(field), 0) / 5);
   if (payload.length !== length) throw new Error('Die Einstellungen im Satzcode sind unvollständig oder zu lang.');
@@ -6804,6 +6906,30 @@ const PAPER_MANIFEST_G4 = [{
 }, {
   id: 'smart-10',
   fingerprint: '40482d4d4a95d92060200cd0'
+}, {
+  id: 'smart-11',
+  fingerprint: 'd8ecb9303c40c1c32bd76641'
+}, {
+  id: 'smart-12',
+  fingerprint: '93289e72fd744cf543083ef7'
+}, {
+  id: 'smart-13',
+  fingerprint: '58d50c88ba33f28f141b28d8'
+}, {
+  id: 'smart-14',
+  fingerprint: 'e3da4c07ea0333294f999a0e'
+}, {
+  id: 'smart-15',
+  fingerprint: 'bc1c9fb8354116738bdfa120'
+}, {
+  id: 'smart-16',
+  fingerprint: 'b6f1186bf4a3e0f52f38a430'
+}, {
+  id: 'smart-17',
+  fingerprint: '979bd427940acf192bae13d0'
+}, {
+  id: 'smart-18',
+  fingerprint: '66a172984e1eba3193fde447'
 }];
 function encodePaperCode(slot) {
   if (!Number.isSafeInteger(slot) || slot < 0 || slot >= PAPER_MANIFEST_G4.length) throw new Error('Unbekannte Papiervorlage.');
@@ -8475,7 +8601,7 @@ const EZ_PRESETS = [{
   }
 }, {
   id: 'smart-01',
-  label: 'Schlau rechnen: Zusammenfassen bis 100, 3×3',
+  label: 'Klasse 5 · bis 100: Zusammenfassen (nur Addition, 3 Summanden) · 3×3 · 30 Karten',
   mode: 'smartArithmetic',
   cardSeed: 'EZ-SCHLAU-01',
   params: {
@@ -8486,7 +8612,7 @@ const EZ_PRESETS = [{
   }
 }, {
   id: 'smart-02',
-  label: 'Schlau rechnen: Hilfsaddition bis 100, 3×3',
+  label: 'Klasse 5 · bis 100: Hilfsaddition · 3×3 · 30 Karten',
   mode: 'smartArithmetic',
   cardSeed: 'EZ-SCHLAU-02',
   params: {
@@ -8497,7 +8623,7 @@ const EZ_PRESETS = [{
   }
 }, {
   id: 'smart-03',
-  label: 'Schlau rechnen: Hilfssubtraktion bis 100, 3×3',
+  label: 'Klasse 5 · bis 100: Hilfssubtraktion · 3×3 · 30 Karten',
   mode: 'smartArithmetic',
   cardSeed: 'EZ-SCHLAU-03',
   params: {
@@ -8508,7 +8634,7 @@ const EZ_PRESETS = [{
   }
 }, {
   id: 'smart-04',
-  label: 'Schlau rechnen: Subtraktionen bündeln bis 100, 3×3',
+  label: 'Klasse 5 · bis 100: Subtraktionen bündeln · 3×3 · 30 Karten',
   mode: 'smartArithmetic',
   cardSeed: 'EZ-SCHLAU-04',
   params: {
@@ -8519,7 +8645,7 @@ const EZ_PRESETS = [{
   }
 }, {
   id: 'smart-05',
-  label: 'Schlau rechnen: Strategien gemischt bis 100, 3×3',
+  label: 'Klasse 5 · bis 100: Strategien gemischt · 3×3 · 30 Karten',
   mode: 'smartArithmetic',
   cardSeed: 'EZ-SCHLAU-05',
   params: {
@@ -8530,7 +8656,7 @@ const EZ_PRESETS = [{
   }
 }, {
   id: 'smart-06',
-  label: 'Schlau rechnen: Nur Addition, 3–4 Summanden bis 1000, 4×4',
+  label: 'Klasse 5 · bis 1000: Zusammenfassen (nur Addition, 3–4 Summanden) · 4×4 · 30 Karten',
   mode: 'smartArithmetic',
   cardSeed: 'EZ-SCHLAU-06',
   params: {
@@ -8541,7 +8667,7 @@ const EZ_PRESETS = [{
   }
 }, {
   id: 'smart-07',
-  label: 'Schlau rechnen: Hilfsaddition bis 1000, 4×4',
+  label: 'Klasse 5 · bis 1000: Hilfsaddition · 4×4 · 30 Karten',
   mode: 'smartArithmetic',
   cardSeed: 'EZ-SCHLAU-07',
   params: {
@@ -8552,7 +8678,7 @@ const EZ_PRESETS = [{
   }
 }, {
   id: 'smart-08',
-  label: 'Schlau rechnen: Hilfssubtraktion bis 1000, 4×4',
+  label: 'Klasse 5 · bis 1000: Hilfssubtraktion · 4×4 · 30 Karten',
   mode: 'smartArithmetic',
   cardSeed: 'EZ-SCHLAU-08',
   params: {
@@ -8563,7 +8689,7 @@ const EZ_PRESETS = [{
   }
 }, {
   id: 'smart-09',
-  label: 'Schlau rechnen: Subtraktionen bündeln bis 1000, 4×4',
+  label: 'Klasse 5 · bis 1000: Subtraktionen bündeln · 4×4 · 30 Karten',
   mode: 'smartArithmetic',
   cardSeed: 'EZ-SCHLAU-09',
   params: {
@@ -8574,7 +8700,7 @@ const EZ_PRESETS = [{
   }
 }, {
   id: 'smart-10',
-  label: 'Schlau rechnen: Strategien gemischt bis 1000, 4×4',
+  label: 'Klasse 5 · bis 1000: Strategien gemischt · 4×4 · 30 Karten',
   mode: 'smartArithmetic',
   cardSeed: 'EZ-SCHLAU-10',
   params: {
@@ -8582,6 +8708,94 @@ const EZ_PRESETS = [{
     cards: 30,
     smartLevel: 'standard',
     smartFamily: 'mixed'
+  }
+}, {
+  id: 'smart-11',
+  label: 'Klasse 5 · bis 100: Kommutativgesetz · geschickt addieren · 3×3 · 60 Karten',
+  mode: 'smartArithmetic',
+  cardSeed: 'EZ-SCHLAU-11',
+  params: {
+    grid: 3,
+    cards: 60,
+    smartLevel: 'easy',
+    smartFamily: 'commute'
+  }
+}, {
+  id: 'smart-12',
+  label: 'Klasse 5 · bis 100: Assoziativgesetz · Additionen mit Klammern · 3×3 · 60 Karten',
+  mode: 'smartArithmetic',
+  cardSeed: 'EZ-SCHLAU-12',
+  params: {
+    grid: 3,
+    cards: 60,
+    smartLevel: 'easy',
+    smartFamily: 'associate'
+  }
+}, {
+  id: 'smart-13',
+  label: 'Klasse 5 · bis 100: Klammern zuerst · Subtraktion · 3×3 · 60 Karten',
+  mode: 'smartArithmetic',
+  cardSeed: 'EZ-SCHLAU-13',
+  params: {
+    grid: 3,
+    cards: 60,
+    smartLevel: 'easy',
+    smartFamily: 'brackets'
+  }
+}, {
+  id: 'smart-14',
+  label: 'Klasse 5 · bis 100: Rechengesetze und Klammern gemischt · 3×3 · 60 Karten',
+  mode: 'smartArithmetic',
+  cardSeed: 'EZ-SCHLAU-14',
+  params: {
+    grid: 3,
+    cards: 60,
+    smartLevel: 'easy',
+    smartFamily: 'lawsMixed'
+  }
+}, {
+  id: 'smart-15',
+  label: 'Klasse 5 · bis 1000: Kommutativgesetz · geschickt addieren · 3×3 · 60 Karten',
+  mode: 'smartArithmetic',
+  cardSeed: 'EZ-SCHLAU-15',
+  params: {
+    grid: 3,
+    cards: 60,
+    smartLevel: 'standard',
+    smartFamily: 'commute'
+  }
+}, {
+  id: 'smart-16',
+  label: 'Klasse 5 · bis 1000: Assoziativgesetz · Additionen mit Klammern · 3×3 · 60 Karten',
+  mode: 'smartArithmetic',
+  cardSeed: 'EZ-SCHLAU-16',
+  params: {
+    grid: 3,
+    cards: 60,
+    smartLevel: 'standard',
+    smartFamily: 'associate'
+  }
+}, {
+  id: 'smart-17',
+  label: 'Klasse 5 · bis 1000: Klammern zuerst · Subtraktion · 3×3 · 60 Karten',
+  mode: 'smartArithmetic',
+  cardSeed: 'EZ-SCHLAU-17',
+  params: {
+    grid: 3,
+    cards: 60,
+    smartLevel: 'standard',
+    smartFamily: 'brackets'
+  }
+}, {
+  id: 'smart-18',
+  label: 'Klasse 5 · bis 1000: Rechengesetze und Klammern gemischt · 3×3 · 60 Karten',
+  mode: 'smartArithmetic',
+  cardSeed: 'EZ-SCHLAU-18',
+  params: {
+    grid: 3,
+    cards: 60,
+    smartLevel: 'standard',
+    smartFamily: 'lawsMixed'
   }
 }];
 function getPresetById(id) {
@@ -10655,15 +10869,15 @@ function App() {
     className: "grid gap-4 md:grid-cols-2"
   }, /*#__PURE__*/React.createElement("label", null, /*#__PURE__*/React.createElement("span", {
     className: "mb-2 block text-sm font-semibold text-slate-600"
-  }, "Stufe"), /*#__PURE__*/React.createElement("select", {
+  }, "Zahlenraum"), /*#__PURE__*/React.createElement("select", {
     value: smartLevel,
     onChange: e => setSmartLevel(e.target.value),
     className: "w-full rounded-2xl border border-slate-300 bg-white px-4 py-3"
   }, /*#__PURE__*/React.createElement("option", {
     value: "easy"
-  }, "Einfach bis 100"), /*#__PURE__*/React.createElement("option", {
+  }, "Zahlenraum bis 100"), /*#__PURE__*/React.createElement("option", {
     value: "standard"
-  }, "Standard bis 1000"))), /*#__PURE__*/React.createElement("label", null, /*#__PURE__*/React.createElement("span", {
+  }, "Zahlenraum bis 1000"))), /*#__PURE__*/React.createElement("label", null, /*#__PURE__*/React.createElement("span", {
     className: "mb-2 block text-sm font-semibold text-slate-600"
   }, "Strategiefamilie"), /*#__PURE__*/React.createElement("select", {
     value: smartFamily,
@@ -10679,11 +10893,19 @@ function App() {
     value: "subtractNear"
   }, "Hilfsaufgabe Subtraktion"), /*#__PURE__*/React.createElement("option", {
     value: "bundle"
-  }, "Subtraktionsschritte b\xFCndeln")))), smartFamily === 'combine' && /*#__PURE__*/React.createElement("p", {
+  }, "Subtraktionsschritte b\xFCndeln"), /*#__PURE__*/React.createElement("option", {
+    value: "commute"
+  }, "Kommutativgesetz \xB7 geschickt addieren"), /*#__PURE__*/React.createElement("option", {
+    value: "associate"
+  }, "Assoziativgesetz \xB7 Additionen mit Klammern"), /*#__PURE__*/React.createElement("option", {
+    value: "brackets"
+  }, "Klammern zuerst \xB7 Subtraktion"), /*#__PURE__*/React.createElement("option", {
+    value: "lawsMixed"
+  }, "Rechengesetze und Klammern gemischt")))), smartFamily === 'combine' && /*#__PURE__*/React.createElement("p", {
     className: "mt-3 text-sm font-semibold text-teal-900"
   }, "Nur Addition mit ", smartLevel === 'standard' ? 'drei oder vier' : 'drei', " Summanden. Schwerpunkt: Summanden geschickt vertauschen (Kommutativgesetz) und zusammenfassen."), /*#__PURE__*/React.createElement("p", {
     className: "mt-3 text-sm text-slate-600"
-  }, "Rechne geschickt im Kopf. Ohne Taschenrechner. G\xFCnstige Zahlbeziehungen suchen und in der Besprechung erkl\xE4ren; andere richtige Wege sind m\xF6glich. Einfach: 36 Ergebniswerte, Standard: 48. Raster 2\xD72 bis 5\xD75. Richtiges Markieren allein zeigt noch keine begr\xFCndete Strategiewahl."));
+  }, "Rechne geschickt im Kopf. Ohne Taschenrechner. G\xFCnstige Zahlbeziehungen suchen und in der Besprechung erkl\xE4ren; andere richtige Wege sind m\xF6glich. Der gew\xE4hlte Pool enth\xE4lt ", smartLevel === 'standard' && ![...SMART_LAW_FAMILIES, 'lawsMixed'].includes(smartFamily) ? 48 : 36, " Ergebniswerte. Raster 2\xD72 bis 5\xD75. Richtiges Markieren allein zeigt noch keine begr\xFCndete Strategiewahl."));
   const FractionSettings = () => /*#__PURE__*/React.createElement("div", {
     className: "md:col-span-full rounded-2xl bg-indigo-50/50 p-4 border border-indigo-100"
   }, /*#__PURE__*/React.createElement("div", {

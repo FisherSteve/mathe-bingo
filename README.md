@@ -30,6 +30,8 @@ Zum Weitergeben genügt die `index.html`. Für bereits vorbereitete freie Karten
 
 Enthalten sind Multiplikation, Brüche, Terme, lineare Gleichungen, Potenzen und Wurzeln, Prozente, lineare und quadratische Funktionen, geometrische Figuren und Körper, Pythagoras sowie „Schlau rechnen“ für Klasse 5.
 
+Unter **Schlau rechnen · Klasse 5** sind alle Vorlagen nach Zahlenraum (**bis 100** bzw. **bis 1000**), Schwerpunkt, Raster und Kartenzahl benannt. Für beide Zahlenräume gibt es je vier Vorlagen zu Rechengesetzen und Klammern mit **60 Karten im 3×3-Raster**: Kommutativgesetz (geschickt addieren), Assoziativgesetz (Additionen mit Klammern), Klammern zuerst (Subtraktion) und eine ausgewogene Mischung. Bis 1000 kommen dreistellige Zahlen mit verschiedenen Endziffern vor. Die aktuelle Aufgabe erscheint ohne Rechenhinweis; optionale Lösungen und Rechenwege beziehen sich ausschließlich auf die vorherige Aufgabe. Subtraktion wird nicht als assoziativ behandelt. Die bisherigen Strategien und ihre Spielcodes bleiben erhalten.
+
 - Version 1.4 ist eine Desktop-Beta. iPad und Safari sind noch nicht geprüft.
 - Graphen- und Figurenkarten sind auf 2×2 und 3×3 begrenzt. Große Kartensätze mit Grafiken können sehr große PDFs erzeugen.
 - Lineare und quadratische Funktionen (Graph ↔ Formel, Nullstellen ablesen): Auf beiden Achsen entspricht jeder Gitterschritt 1 und ist gleich lang (quadratische Kästchen), auch im PDF. Alle Graphen eines Satzes verwenden denselben Maßstab und Achsenbereich. Funktionsgraphenkarten werden für bessere Lesbarkeit mit einer Karte pro PDF-Seite ausgegeben. Bei großen Wertebereichen werden weniger Zahlen beschriftet; das Gitter bleibt in 1er-Schritten.
