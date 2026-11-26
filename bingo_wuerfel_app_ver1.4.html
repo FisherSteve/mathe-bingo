@@ -4083,6 +4083,8 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
       const activeMode = activeCardSet?.mode || gameMode;
       const activeParams = activeCardSet?.params || params;
       const activeModeDef = GAME_MODES[activeMode];
+      const activePreset = activeCardSet && findMatchingPreset(activeCardSet.mode, activeCardSet.params, activeCardSet.cardSeed);
+      const activeSetLabel = activePreset?.label || `${activeModeDef.label} · ${cards.length} Karten · ${activeParams.grid}×${activeParams.grid}`;
       const poolInfo = useMemo(() => {
         try { return validatePools(gameMode, params).stats; }
         catch (err) { return { totalTasks: 0, uniqueTargets: 0, approxCards: 0, duplicateTasksRemoved: 0, error: err.message }; }
@@ -4672,18 +4674,36 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
         doc.setFontSize(22);
         doc.text('Mathe-Bingo - Kartensatz', 20, 24);
         doc.setFontSize(12);
-        doc.text(`${GAME_MODES[set.mode].label} | ${set.params.grid}x${set.params.grid} | ${set.cards.length} Karten`, 20, 36);
+        const titleLines = doc.splitTextToSize(activeSetLabel, 170);
+        const headerOffset = (titleLines.length - 1) * 6;
+        titleLines.forEach((line, index) => {
+          let x = 20;
+          const y = 36 + index * 6;
+          for (const part of line.split(/(→)/)) {
+            const width = doc.getTextWidth(part);
+            if (part === '→') {
+              // Draw the arrow as lines because the built-in PDF fonts lack it.
+              doc.setDrawColor(30, 41, 59);
+              doc.setLineWidth(0.25);
+              doc.line(x, y - 1.2, x + width, y - 1.2);
+              doc.lines([[-0.8, -0.7], [0.8, 0.7], [-0.8, 0.7]], x + width, y - 1.2);
+            } else {
+              doc.text(part, x, y);
+            }
+            x += width;
+          }
+        });
         doc.setDrawColor(203, 213, 225);
         doc.setLineWidth(0.3);
-        doc.line(20, 44, 190, 44);
+        doc.line(20, 44 + headerOffset, 190, 44 + headerOffset);
         doc.setFontSize(14);
-        doc.text('So starten Sie mit diesen Karten', 20, 59);
+        doc.text('So starten Sie mit diesen Karten', 20, 59 + headerOffset);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(11);
-        doc.text(set.paperCode ? 'Diesen Spielcode eingeben:' : 'Satzdatei auswählen (Datei digital mitgeben):', 20, 73);
+        doc.text(set.paperCode ? 'Diesen Spielcode eingeben:' : 'Satzdatei auswählen (Datei digital mitgeben):', 20, 73 + headerOffset);
         doc.setFont('courier', 'bold');
         doc.setFontSize(set.paperCode ? 22 : 11);
-        doc.text(set.paperCode || `mathe-bingo_${set.comparisonCode}.bingo.json`, 20, 87);
+        doc.text(set.paperCode || `mathe-bingo_${set.comparisonCode}.bingo.json`, 20, 87 + headerOffset);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(11);
         const instructions = set.paperCode ? [
@@ -4695,7 +4715,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
           '2. Die oben benannte Datei auswählen. Vorschau, Regeln und aktive Karten prüfen, dann „Diesen Satz übernehmen“ wählen.',
           '3. Kartenabgleich unten mit den Karten vergleichen und die Runde starten.'
         ];
-        let y = 104;
+        let y = 104 + headerOffset;
         for (const instruction of instructions) {
           const lines = doc.splitTextToSize(instruction, 170);
           doc.text(lines, 20, y);
@@ -5213,7 +5233,7 @@ from Tavmjong Bah. For further information, contact: tavmjong @ free
             </header>
             <main className="mx-auto max-w-6xl px-4 py-6 md:px-6">
               {activeCardSet && <div className="s6-setbar" data-testid="loaded-set">
-                <div><p className="text-xs font-bold uppercase tracking-wide text-slate-600">Geladener Satz</p><p className="font-bold">{activeModeDef.label} · {cards.length} Karten · {activeParams.grid}×{activeParams.grid}</p><p data-testid="set-identity" className="text-sm break-words">{activeCardSet.paperCode ? `Spielcode: ${activeCardSet.paperCode} · ` : 'Freier Satz · '}Kartenabgleich (kein Ladecode): {activeCardSet.comparisonCode}</p></div>
+                <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wide text-slate-600">Geladener Satz</p><p className="font-bold break-words">{activeSetLabel}</p><p data-testid="set-identity" className="text-sm break-words">{activeCardSet.paperCode ? `Spielcode: ${activeCardSet.paperCode} · ` : 'Freier Satz · '}Kartenabgleich (kein Ladecode): {activeCardSet.comparisonCode}</p></div>
                 <p className="text-sm font-semibold" data-testid="round-status">{roundStarted ? `${drawQueue.length ? 'Runde läuft' : 'Alle Zielwerte gezogen'} · ${history.length} gezogen · ${drawQueue.length} übrig${timerEnabled ? ' · Auto-Ziehen aktiv' : ''}` : 'Bereit · Runde noch nicht gestartet'}</p>
               </div>}
               <h1 ref={headingRef} tabIndex={-1} className="s6-title">{view === 'home' ? 'Was möchtest du tun?' : view === 'prepare' ? 'Karten vorbereiten' : view === 'load' ? 'Vorhandenen Satz laden' : 'Runde spielen'}</h1>
